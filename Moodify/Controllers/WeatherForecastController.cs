@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+sing Microsoft.AspNetCore.Mvc;
 
 namespace Moodify.Controllers
 {
