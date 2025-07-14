@@ -1,15 +1,17 @@
-﻿using System;
+﻿using Microsoft.AspNetCore.Identity;
+using System;
 using System.Collections.Generic;
 
 namespace Moodify.Models;
 
-public partial class User
+public class User:IdentityUser
 {
-    public int Id { get; set; }
+    public string FirstName { get; set; }
+    public string LastName { get; set; }
+	public string? RefreshToken { get; set; }
+	public DateTime RefreshTokenExpirytime { get; set; }
 
-    public string Email { get; set; } = null!;
-
-    public byte[]? Photo { get; set; }
+	public byte[]? Photo { get; set; }
     public virtual ICollection<Favorite> Favorite { get; set; } = new List<Favorite>();
     public virtual ICollection<History> Histories { get; set; } = new List<History>();
 }

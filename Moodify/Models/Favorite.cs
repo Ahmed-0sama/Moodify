@@ -5,11 +5,9 @@ namespace Moodify.Models;
 
 public  class Favorite
 {
-    public int Userid { get; set; }
+	public string? Userid { get; set; }
+	public int? Musicid { get; set; }
 
-    public int Musicid { get; set; }
-
-    public virtual Music Music { get; set; }
-
-    public virtual User User { get; set; }
+	public virtual Music? Music { get; set; }
+	public virtual User? User { get; set; }
 }

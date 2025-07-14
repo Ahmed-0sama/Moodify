@@ -13,5 +13,5 @@ public  class Music
 
 	public virtual ICollection<Favorite> Favorites { get; set; } = new List<Favorite>();
 
-	public virtual ICollection<ArtistMusic> ArtistMusics { get; set; } = new List<ArtistMusic>();
+	public ICollection<ArtistMusic> ArtistMusics { get; set; } = new List<ArtistMusic>();
 }
