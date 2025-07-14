@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Moodify.DTO;
 using Moodify.Models;
+using Moodify.Services;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -15,12 +16,12 @@ namespace Moodify.Controllers
 {
 	[Route("api/[controller]")]
 	[ApiController]
-	public class userController : ControllerBase
+	public class UserController : ControllerBase
 	{
 
 		private readonly UserManager<User> userManager;
 		private readonly IConfiguration configuration;
-		public userController(UserManager<User> userManager, IConfiguration configuration)
+		public UserController(UserManager<User> userManager, IConfiguration configuration)
 		{
 			this.userManager = userManager;
 			this.configuration = configuration;
