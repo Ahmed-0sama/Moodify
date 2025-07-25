@@ -15,6 +15,8 @@ public partial class MoodifyDbContext : IdentityDbContext<User>
 	public virtual DbSet<Favorite> Favorites { get; set; }
 	public virtual DbSet<History> Histories { get; set; }
 	public virtual DbSet<Music> Musics { get; set; }
+	public virtual DbSet<FriendReq> FriendReqs { get; set; }
+	public virtual DbSet<Friends> Friends { get; set; }
 
 	protected override void OnModelCreating(ModelBuilder modelBuilder)
 	{
@@ -28,7 +30,15 @@ public partial class MoodifyDbContext : IdentityDbContext<User>
 			entity.Property(e => e.ArtistId).HasColumnName("artist_id").ValueGeneratedNever();
 			entity.Property(e => e.ArtistName).HasColumnName("artist_name").HasMaxLength(255);
 		});
+		modelBuilder.Entity<FriendReq>()
+			.HasOne(fr => fr.user)
+			.WithMany(u => u.SentFriendRequests)
+			.HasForeignKey(fr => fr.userid);
 
+		modelBuilder.Entity<Friends>()
+			.HasOne(f => f.user)
+			.WithMany(u => u.Friends)
+			.HasForeignKey(f => f.userid);
 		// ArtistMusic junction
 		modelBuilder.Entity<ArtistMusic>()
 			.HasKey(am => new { am.ArtistId, am.MusicId });

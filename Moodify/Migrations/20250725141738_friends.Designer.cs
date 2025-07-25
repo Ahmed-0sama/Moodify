@@ -12,8 +12,8 @@ using Moodify.Models;
 namespace Moodify.Migrations
 {
     [DbContext(typeof(MoodifyDbContext))]
-    [Migration("20250713194609_jwt")]
-    partial class jwt
+    [Migration("20250725141738_friends")]
+    partial class friends
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -204,6 +204,56 @@ namespace Moodify.Migrations
                     b.HasIndex("Musicid");
 
                     b.ToTable("favorites", (string)null);
+                });
+
+            modelBuilder.Entity("Moodify.Models.FriendReq", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("receiveid")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("sendid")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("userid")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("userid");
+
+                    b.ToTable("FriendReqs");
+                });
+
+            modelBuilder.Entity("Moodify.Models.Friends", b =>
+                {
+                    b.Property<int>("id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("id"));
+
+                    b.Property<string>("friendid")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("userid")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("id");
+
+                    b.HasIndex("userid");
+
+                    b.ToTable("Friends");
                 });
 
             modelBuilder.Entity("Moodify.Models.History", b =>
@@ -424,6 +474,28 @@ namespace Moodify.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Moodify.Models.FriendReq", b =>
+                {
+                    b.HasOne("Moodify.Models.User", "user")
+                        .WithMany("SentFriendRequests")
+                        .HasForeignKey("userid")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("user");
+                });
+
+            modelBuilder.Entity("Moodify.Models.Friends", b =>
+                {
+                    b.HasOne("Moodify.Models.User", "user")
+                        .WithMany("Friends")
+                        .HasForeignKey("userid")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("user");
+                });
+
             modelBuilder.Entity("Moodify.Models.History", b =>
                 {
                     b.HasOne("Moodify.Models.Music", "Music")
@@ -459,7 +531,11 @@ namespace Moodify.Migrations
                 {
                     b.Navigation("Favorite");
 
+                    b.Navigation("Friends");
+
                     b.Navigation("Histories");
+
+                    b.Navigation("SentFriendRequests");
                 });
 #pragma warning restore 612, 618
         }

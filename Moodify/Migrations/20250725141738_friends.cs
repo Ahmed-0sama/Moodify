@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Moodify.Migrations
 {
     /// <inheritdoc />
-    public partial class jwt : Migration
+    public partial class friends : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -186,6 +186,47 @@ namespace Moodify.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "FriendReqs",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    sendid = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    receiveid = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    userid = table.Column<string>(type: "nvarchar(450)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_FriendReqs", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_FriendReqs_AspNetUsers_userid",
+                        column: x => x.userid,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Friends",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    userid = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    friendid = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Friends", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_Friends_AspNetUsers_userid",
+                        column: x => x.userid,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ArtistMusics",
                 columns: table => new
                 {
@@ -308,6 +349,16 @@ namespace Moodify.Migrations
                 column: "musicid");
 
             migrationBuilder.CreateIndex(
+                name: "IX_FriendReqs_userid",
+                table: "FriendReqs",
+                column: "userid");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Friends_userid",
+                table: "Friends",
+                column: "userid");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_history_music_id",
                 table: "history",
                 column: "music_id");
@@ -341,6 +392,12 @@ namespace Moodify.Migrations
 
             migrationBuilder.DropTable(
                 name: "favorites");
+
+            migrationBuilder.DropTable(
+                name: "FriendReqs");
+
+            migrationBuilder.DropTable(
+                name: "Friends");
 
             migrationBuilder.DropTable(
                 name: "history");

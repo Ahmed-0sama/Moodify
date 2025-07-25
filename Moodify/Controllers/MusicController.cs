@@ -21,7 +21,6 @@ namespace Moodify.Controllers
 			this.userManager = userManager;
 			this.configuration = configuration;
 			this.spotifyTokenManager = spotifyTokenManager;
-
 		}
 		[Authorize]
 		[HttpGet("searchformusic")]

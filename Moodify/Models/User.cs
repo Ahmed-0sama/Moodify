@@ -14,4 +14,6 @@ public class User:IdentityUser
 	public byte[]? Photo { get; set; }
     public virtual ICollection<Favorite> Favorite { get; set; } = new List<Favorite>();
     public virtual ICollection<History> Histories { get; set; } = new List<History>();
+    public virtual ICollection<Friends> Friends { get; set; } = new List<Friends>();
+    public virtual ICollection<FriendReq> SentFriendRequests { get; set; } = new List<FriendReq>();
 }
