@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Moodify.DTO;
+using Moodify.Migrations;
 using Moodify.Models;
 using System;
 using System.Security.Claims;
@@ -72,6 +73,11 @@ namespace Moodify.Controllers
 			{
 				return BadRequest("Friend request already sent.");
 			}
+			var friends = await db.Friends.FirstOrDefaultAsync(u => u.friendid == dto.userid);
+			if (friends != null)
+			{
+				return BadRequest("Already Friends");
+			}
 			var FriendReq = new FriendReq
 			{
 				sendid = user.Id,
@@ -99,6 +105,7 @@ namespace Moodify.Controllers
 			var req = await db.FriendReqs.Where(s => s.sendid == user.Id).ToListAsync();
 			var lt = req.Select(item => new ShowSentReqDTO
 			{
+				//id = item.Id,
 				FirstName = item.recieverfname,
 				LastName = item.recieverlname,
 				status = item.Status,
@@ -116,16 +123,105 @@ namespace Moodify.Controllers
 			{
 				return NotFound("User Not Found");
 			}
-			var req = await db.FriendReqs.Where(s => s.sendid == user.Id).ToListAsync();
+			var req = await db.FriendReqs.Where(s => s.receiveid == user.Id).ToListAsync();
 			var lt = req.Select(item => new ShowSentReqDTO
 			{
+				id=item.Id,
 				FirstName = item.senderfname,
 				LastName = item.senderlname,
 				status = item.Status,
 				sendAt = item.sendAt
 			}).ToList();
 			return Ok(lt);
+		}
+		[Authorize]
+		[HttpPost("Accept")]
+		public async Task<IActionResult> Acceptreq([FromBody] int id)
+		{
+			if (id == null)
+			{
+				return BadRequest("must send the id");
+			}
+			var user = await userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+			if (user == null)
+			{
+				return NotFound("user Not found");
+			}
+			var item = await db.FriendReqs
+			.Include(fr => fr.Sender)
+			.Include(fr => fr.Receiver)
+			.FirstOrDefaultAsync(fr => fr.Id == id);
+			if (item == null)
+			{
+				return NotFound("Not Found item with this id");
+			}
+			var other = item.sendid == user.Id ? item.Receiver : item.Sender;
+			if (item.Status== "Pending")
+			{
+				var sender = item.Sender;
+				var receiver = item.Receiver;
 
+				// Friend from sender to receiver
+				var friend1 = new Friends
+				{
+					userid = sender.Id,
+					friendid = receiver.Id,
+					friendName = receiver.FirstName + " " + receiver.LastName
+				};
+
+				// Friend from receiver to sender
+				var friend2 = new Friends
+				{
+					userid = receiver.Id,
+					friendid = sender.Id,
+					friendName = sender.FirstName + " " + sender.LastName
+				};
+
+				await db.Friends.AddRangeAsync(friend1, friend2);
+				db.FriendReqs.Remove(item);
+				await db.SaveChangesAsync();
+				return Ok("You Now are Friends");
+			}
+			return NotFound("this request are not found");
+		}
+		[Authorize]
+		[HttpPost("reject")]
+		public async Task<IActionResult> reject([FromBody] int id)
+		{
+			if (id == null)
+			{
+				return BadRequest("must send the id");
+			}
+			var user = userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+			if (user == null)
+			{
+				return NotFound("user Not found");
+			}
+			var item = await db.FriendReqs.FirstOrDefaultAsync(s => s.Id == id);
+			if (item == null)
+			{
+				return NotFound("Not Found item with this id");
+			}
+			db.FriendReqs.Remove(item);
+			await db.SaveChangesAsync();
+			return Ok("the friend request has been declined");
+		}
+		[Authorize]
+		[HttpGet("showthefriends")]
+		public async Task<IActionResult> ShowFriendsUser()
+		{
+			var user = await userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+			if (user == null)
+			{
+				return NotFound("User Not Found");
+			}
+			var list = await db.Friends.Where(s => s.userid == user.Id).ToListAsync();
+
+			var lt = list.Select(item => new ShowFrriendsDTO
+			{
+				name = item.friendName
+			}).ToList();
+			return Ok(lt);
 		}
 
 	}

@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using Moodify.DTO;
 using Moodify.Models;
 using Moodify.Services;
+using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -19,86 +20,97 @@ namespace Moodify.Controllers
 	public class UserController : ControllerBase
 	{
 
+		MoodifyDbContext db;
 		private readonly UserManager<User> userManager;
+		private readonly RoleManager<IdentityRole> roleManager;
 		private readonly IConfiguration configuration;
-		public UserController(UserManager<User> userManager, IConfiguration configuration)
+		public UserController(MoodifyDbContext db, UserManager<User> userManager, IConfiguration configuration, RoleManager<IdentityRole> roleManager)
 		{
+			this.db = db;
 			this.userManager = userManager;
 			this.configuration = configuration;
-
+			this.roleManager = roleManager;
 		}
 
-		[HttpPost("register")]
-		public async Task<IActionResult> Register(registerDTO dto)
+		[HttpPost("Register")]
+		public async Task<IActionResult> Signup(registerDTO registerfromform)
 		{
 			if (ModelState.IsValid)
 			{
 				User user = new User
 				{
-					FirstName = dto.Fname,
-					LastName = dto.Lname,
-					Email = dto.email,
-					UserName=dto.email
+					FirstName = registerfromform.Fname,
+					LastName = registerfromform.Lname,
+					Email = registerfromform.email,
+					UserName = registerfromform.email,
+					RefreshToken = TokenRequest.GenerateRefreshToken(),
+					RefreshTokenExpirytime = DateTime.UtcNow.AddDays(7)
 				};
-				IdentityResult result = await userManager.CreateAsync(user, dto.password);
+				IdentityResult result = await userManager.CreateAsync(user, registerfromform.password);
 				if (result.Succeeded)
 				{
+					await db.SaveChangesAsync();
+
 					return Ok("Created");
 				}
-				foreach (var errors in result.Errors)
+				foreach (var error in result.Errors)
 				{
-					ModelState.AddModelError(string.Empty, errors.Description);
+					ModelState.AddModelError(string.Empty, error.Description);
 				}
 			}
 			return BadRequest(ModelState);
 		}
-		[HttpPost("login")]
-		public async Task<IActionResult> login(loginDTO dto)
+		[HttpPost("Login")]
+		public async Task<IActionResult> Login(loginDTO log)
 		{
 			if (ModelState.IsValid)
 			{
-				var userdb = await userManager.FindByEmailAsync(dto.email);
+				var userdb = await userManager.FindByNameAsync(log.email);
 				if (userdb != null)
 				{
-					var userClaims = new List<Claim>
+					bool isPasswordCorrect = await userManager.CheckPasswordAsync(userdb, log.password);
+					if (isPasswordCorrect)
 					{
-						new Claim(JwtRegisteredClaimNames.Jti,Guid.NewGuid().ToString()),
-						new Claim(ClaimTypes.NameIdentifier,userdb.Id),
-						new Claim(ClaimTypes.Name,userdb.UserName),
-					};
-					var userRole = await userManager.GetRolesAsync(userdb);
-					foreach (var role in userRole)
-					{
-						userClaims.Add(new Claim(ClaimTypes.Role, role));
+						var userClaims = new List<Claim>
+						{
+							new Claim (JwtRegisteredClaimNames.Jti,Guid.NewGuid().ToString()),
+							new Claim(ClaimTypes.NameIdentifier,userdb.Id),
+							new Claim(ClaimTypes.Name,userdb.UserName),
+						};
+						var userRole = await userManager.GetRolesAsync(userdb);
+						foreach (var role in userRole)
+						{
+							userClaims.Add(new Claim(ClaimTypes.Role, role));
+						}
+						var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"]));
+						var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+						var token = new JwtSecurityToken(
+							issuer: configuration["Jwt:Issuer"],
+							audience: configuration["Jwt:Audience"],
+							claims: userClaims,
+							expires: DateTime.UtcNow.AddMinutes(30),
+							signingCredentials: creds
+						);
+
+						var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
+
+						string refreshToken = TokenRequest.GenerateRefreshToken();
+						userdb.RefreshToken = refreshToken;
+						userdb.RefreshTokenExpirytime = DateTime.UtcNow.AddDays(7);
+						await userManager.UpdateAsync(userdb);
+
+						return Ok(new
+						{
+							token = accessToken,
+							expiration = token.ValidTo,
+							refreshToken = refreshToken
+						});
 					}
-					var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"]));
-					var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-					var token = new JwtSecurityToken(
-						issuer: configuration["Jwt:Issuer"],
-						audience: configuration["Jwt:Audience"],
-						claims: userClaims,
-						expires: DateTime.UtcNow.AddMinutes(30),
-						signingCredentials: creds
-					);
-
-					var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
-
-					string refreshToken = TokenReqest.GenerateRefreshToken();
-					userdb.RefreshToken = refreshToken;
-					userdb.RefreshTokenExpirytime = DateTime.UtcNow.AddDays(7);
-					await userManager.UpdateAsync(userdb);
-
-					return Ok(new
-					{
-						token = accessToken,
-						expiration = token.ValidTo,
-						refreshToken = refreshToken
-					});
 				}
 				ModelState.AddModelError("UserName", "Invalid UserName or Password");
 			}
-				return BadRequest(ModelState);
-			}
+			return BadRequest(ModelState);
+		}
 		[HttpPost("RefreshToken")]
 		public async Task<IActionResult> RefreshToken(RefreshTokenDTO refreshTokenDTO)
 		{
@@ -107,7 +119,7 @@ namespace Moodify.Controllers
 				return BadRequest("Invalid token request");
 			}
 
-			var principal = TokenReqest.GetPrincipalFromExpiredToken(
+			var principal = TokenRequest.GetPrincipalFromExpiredToken(
 			refreshTokenDTO.AccessToken,
 			configuration["Jwt:Key"],
 			configuration["Jwt:Issuer"],
@@ -152,9 +164,9 @@ namespace Moodify.Controllers
 
 			var newAccessToken = new JwtSecurityTokenHandler().WriteToken(newToken);
 
-			string newRefreshToken = TokenReqest.GenerateRefreshToken();
+			string newRefreshToken = TokenRequest.GenerateRefreshToken();
 			userdb.RefreshToken = newRefreshToken;
-			userdb.RefreshTokenExpirytime = DateTime.UtcNow.AddDays(7);
+			userdb.RefreshTokenExpirytime = DateTime.UtcNow.AddDays(7); // Fixed: Changed to UtcNow
 			await userManager.UpdateAsync(userdb);
 
 			return Ok(new

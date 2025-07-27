@@ -2,15 +2,18 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Moodify.Models;
 using Moodify.Services;
+using System;
 using System.Security.Claims;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+IdentityModelEventSource.ShowPII = true;
 // Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddSingleton<SpotifyTokenManager>();
@@ -19,7 +22,35 @@ options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnectio
 builder.Services.AddIdentity<User, IdentityRole>()
 	.AddEntityFrameworkStores<MoodifyDbContext>()
 	.AddDefaultTokenProviders();
-builder.Services.AddEndpointsApiExplorer(); // For Swagger
+
+// JWT Configuration
+var jwtSection = builder.Configuration.GetSection("Jwt");
+var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSection["Key"]));
+
+builder.Services.AddAuthentication(options =>
+{
+	options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+	options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+	options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+	options.SaveToken = true;
+	options.RequireHttpsMetadata = false; // Set to true in production
+	options.TokenValidationParameters = new TokenValidationParameters
+	{
+		ValidateIssuer = true,
+		ValidateAudience = true,
+		ValidateLifetime = true,
+		ValidateIssuerSigningKey = true,
+		IssuerSigningKey = key,
+		ValidIssuer = jwtSection["Issuer"],
+		ValidAudience = jwtSection["Audience"],
+		RoleClaimType = ClaimTypes.Role,
+		ClockSkew = TimeSpan.FromMinutes(1) 
+	};
+});
+// Swagger configuration with JWT support
 builder.Services.AddSwaggerGen(options =>
 {
 	options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -43,38 +74,10 @@ builder.Services.AddSwaggerGen(options =>
 					Id = "Bearer"
 				}
 			},
-			new string[] {}
+			new string[] { }
 		}
 	});
 });
-
-// JWT Configuration
-var jwtSection = builder.Configuration.GetSection("Jwt");
-var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSection["Key"]));
-
-builder.Services.AddAuthentication(options =>
-{
-	options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-	options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-	options.SaveToken = true;
-	options.RequireHttpsMetadata = false; // Should be true in production
-	options.TokenValidationParameters = new TokenValidationParameters
-	{
-		ValidateIssuer = true,
-		ValidateAudience = true,
-		ValidateLifetime = true,
-		ValidateIssuerSigningKey = true,
-		IssuerSigningKey = key,
-		ValidIssuer = jwtSection["Issuer"],
-		ValidAudience = jwtSection["Audience"],
-		RoleClaimType = ClaimTypes.Role,
-		ClockSkew = TimeSpan.Zero
-	};
-});
-
 var app = builder.Build();
 
 // Use Swagger in development
@@ -82,7 +85,6 @@ if (app.Environment.IsDevelopment())
 {
 	app.UseSwagger();
 	app.UseSwaggerUI();
-
 }
 
 // Middleware pipeline

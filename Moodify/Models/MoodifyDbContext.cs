@@ -31,9 +31,16 @@ public partial class MoodifyDbContext : IdentityDbContext<User>
 			entity.Property(e => e.ArtistName).HasColumnName("artist_name").HasMaxLength(255);
 		});
 		modelBuilder.Entity<FriendReq>()
-			.HasOne(fr => fr.user)
+			.HasOne(fr => fr.Sender)
 			.WithMany(u => u.SentFriendRequests)
-			.HasForeignKey(fr => fr.userid);
+			.HasForeignKey(fr => fr.sendid)
+			.OnDelete(DeleteBehavior.Restrict); // Prevent cascade issues if user is deleted
+
+		modelBuilder.Entity<FriendReq>()
+			.HasOne(fr => fr.Receiver)
+			.WithMany(u => u.ReceivedFriendRequests)
+			.HasForeignKey(fr => fr.receiveid)
+			.OnDelete(DeleteBehavior.Restrict);
 
 		modelBuilder.Entity<Friends>()
 			.HasOne(f => f.user)

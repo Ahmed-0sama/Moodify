@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Moodify.Models;
 
@@ -11,9 +12,11 @@ using Moodify.Models;
 namespace Moodify.Migrations
 {
     [DbContext(typeof(MoodifyDbContext))]
-    partial class MoodifyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250727103817_2")]
+    partial class _2
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -217,7 +220,7 @@ namespace Moodify.Migrations
 
                     b.Property<string>("receiveid")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("recieverfname")
                         .IsRequired()
@@ -240,13 +243,15 @@ namespace Moodify.Migrations
 
                     b.Property<string>("sendid")
                         .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("userid")
+                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("receiveid");
-
-                    b.HasIndex("sendid");
+                    b.HasIndex("userid");
 
                     b.ToTable("FriendReqs");
                 });
@@ -258,10 +263,6 @@ namespace Moodify.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("id"));
-
-                    b.Property<string>("friendName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("friendid")
                         .IsRequired()
@@ -498,21 +499,13 @@ namespace Moodify.Migrations
 
             modelBuilder.Entity("Moodify.Models.FriendReq", b =>
                 {
-                    b.HasOne("Moodify.Models.User", "Receiver")
-                        .WithMany("ReceivedFriendRequests")
-                        .HasForeignKey("receiveid")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Moodify.Models.User", "Sender")
+                    b.HasOne("Moodify.Models.User", "user")
                         .WithMany("SentFriendRequests")
-                        .HasForeignKey("sendid")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasForeignKey("userid")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Receiver");
-
-                    b.Navigation("Sender");
+                    b.Navigation("user");
                 });
 
             modelBuilder.Entity("Moodify.Models.Friends", b =>
@@ -564,8 +557,6 @@ namespace Moodify.Migrations
                     b.Navigation("Friends");
 
                     b.Navigation("Histories");
-
-                    b.Navigation("ReceivedFriendRequests");
 
                     b.Navigation("SentFriendRequests");
                 });

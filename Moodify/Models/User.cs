@@ -16,4 +16,6 @@ public class User:IdentityUser
     public virtual ICollection<History> Histories { get; set; } = new List<History>();
     public virtual ICollection<Friends> Friends { get; set; } = new List<Friends>();
     public virtual ICollection<FriendReq> SentFriendRequests { get; set; } = new List<FriendReq>();
+	public virtual ICollection<FriendReq> ReceivedFriendRequests { get; set; }
+
 }
