@@ -246,5 +246,22 @@ namespace Moodify.Controllers
 			}
 			return File(user.Photo, "image/png");
 		}
+		[Authorize]
+		[HttpGet("UserInfo")]
+		public async Task<IActionResult> GetUserInfo()
+		{
+			var user = await userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+			if (user == null)
+			{
+				return NotFound("user Not Found");
+			}
+			var userdto = new UserDataDTO
+			{
+				FirstName = user.FirstName,
+				LastName = user.LastName,
+				image = user.Photo
+			};
+			return Ok(userdto);
+		}
 	}
 }
