@@ -23,7 +23,7 @@ namespace Moodify.Controllers
 			this.db = db;
 
 		}
-		[Authorize]
+		[Authorize(Roles ="Admin")]
 		[HttpPost("AddArtist")]
 		public async Task<IActionResult> AddArtist(AddArtistInfoDTO dto)
 		{

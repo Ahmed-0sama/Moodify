@@ -1,9 +1,16 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Azure.Storage.Blobs;
+using Google.Apis.Drive.v3;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Moodify.DTO;
 using Moodify.Models;
 using Moodify.Services;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
@@ -17,6 +24,8 @@ namespace Moodify.Controllers
 		private readonly UserManager<User> userManager;
 		private readonly IConfiguration configuration;
 		private readonly SpotifyTokenManager spotifyTokenManager;
+		private readonly string sasUri;
+		MoodifyDbContext db;
 		public static Dictionary<string, string> EmotionToMood = new Dictionary<string, string>
 {
 		{ "sad", "happy" },
@@ -27,11 +36,13 @@ namespace Moodify.Controllers
 		{ "surprised", "fun" },
 		{ "confident", "power" }
 };
-		public MusicController(UserManager<User> userManager, IConfiguration configuration,SpotifyTokenManager spotifyTokenManager)
+		public MusicController(UserManager<User> userManager, IConfiguration configuration,SpotifyTokenManager spotifyTokenManager, MoodifyDbContext db)
 		{
 			this.userManager = userManager;
 			this.configuration = configuration;
 			this.spotifyTokenManager = spotifyTokenManager;
+			this.sasUri = configuration["AzureBlob:AzureBlobStorage"];
+			this.db = db;
 		}
 		[Authorize]
 		[HttpGet("searchformusic")]
@@ -42,6 +53,17 @@ namespace Moodify.Controllers
 			{
 				return BadRequest("User Not Found");
 			}
+			var localResults = await db.Musics
+			.Where(m => m.Title.Contains(query))
+			.Select(m => new {
+			m.MusicId,
+			m.Title,
+			m.ContentType,
+			m.musicurl,
+			m.Count,
+			Source = "Local"
+			})
+			.ToListAsync();
 			var token = await spotifyTokenManager.GetAccessTokenAsync();
 			using var client = new HttpClient();
 			client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -53,8 +75,22 @@ namespace Moodify.Controllers
 
 			if (!response.IsSuccessStatusCode)
 				return StatusCode((int)response.StatusCode, content);
+			var spotifyResults = JsonConvert.DeserializeObject<JObject>(content)["tracks"]["items"]
+			.Select(t => new {
+				Id = (string)t["id"],
+				Title = (string)t["name"],
+				Artist = string.Join(", ", t["artists"].Select(a => (string)a["name"])),
+				Url = (string)t["external_urls"]["spotify"],
+				Source = "Spotify"
+			})
+			.ToList();
+			var combinedResults = new
+			{
+				Local = localResults,
+				Spotify = spotifyResults
+			};
 
-			return Content(content, "application/json");
+			return Ok(combinedResults);
 		}
 		[Authorize]
 		[HttpGet("searchbymood")]
@@ -83,6 +119,58 @@ namespace Moodify.Controllers
 				return StatusCode((int)response.StatusCode, content);
 
 			return Content(content, "application/json");
+		}
+		[Authorize(Roles = "Admin")]
+		[HttpPost("AddSong")]
+		public async Task<IActionResult> Addsong(addmusicDTO dto)
+		{
+			if (dto.file == null || dto.file.Length == 0)
+				return BadRequest("No file provided.");
+
+			try
+			{
+				var containerClient = new BlobContainerClient(
+					configuration.GetConnectionString("AzureBlobStorage"),
+					"music");
+
+				await containerClient.CreateIfNotExistsAsync();
+
+
+				var blobClient = containerClient.GetBlobClient(dto.file.FileName);
+
+				using (var stream = dto.file.OpenReadStream())
+				{
+					await blobClient.UploadAsync(stream, overwrite: true);
+				}
+				var music = new Music
+				{
+					Title = dto.title,
+					ContentType = dto.ContentType,
+					musicurl = blobClient.Uri.ToString(),
+					
+				};
+				await db.Musics.AddAsync(music);
+				await db.SaveChangesAsync();
+				foreach(var artist in dto.ArtistIds)
+				{
+					var artistmusic = new ArtistMusic
+					{
+						ArtistId = artist,
+						MusicId = music.MusicId
+					};
+					db.ArtistMusics.Add(artistmusic);
+				}
+				await db.SaveChangesAsync();
+				return Ok(new
+				{
+					Message = "Upload successful",
+					Url = blobClient.Uri.ToString()
+				});
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, $"Error: {ex.Message}");
+			}
 		}
 		[Authorize]
 		[HttpGet("getTopHits")]

@@ -6,8 +6,10 @@ namespace Moodify.Models;
 public  class Music
 {
     public int MusicId { get; set; }
-
-    public int? Count { get; set; }
+	public string Title { get; set; }
+	public string musicurl { get; set; }
+	public string ContentType { get; set; }
+	public int? Count { get; set; }
 
 	public virtual ICollection<History> Histories { get; set; } = new List<History>();
 
