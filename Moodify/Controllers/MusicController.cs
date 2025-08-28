@@ -195,6 +195,28 @@ namespace Moodify.Controllers
 
 			return Content(content, "application/json");
 		}
+		[Authorize]
+		[HttpGet("GetMusic/{type}")]
+		public async Task<IActionResult> GetMusic(string type)
+		{
+			var user = await userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+			if (user == null)
+			{
+				return NotFound("User Not Found");
+			}
+			var list = await db.Musics.Where(s => s.ContentType == type).ToListAsync();
+			var result = list.Select(item => new SendMusicDto
+			{
+				MusicId = item.MusicId,
+				Title = item.Title,
+				musicurl = item.musicurl,
+				ContentType =
+				item.ContentType,
+				count = item.Count
+			}).ToList();
+			return Ok(result);
+		}
+
 	}
 	
 }
