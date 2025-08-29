@@ -1,11 +1,14 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.IdentityModel.Tokens;
 using Moodify.DTO;
 using Moodify.Models;
 using Moodify.Services;
+using Newtonsoft.Json.Linq;
 using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -24,41 +27,74 @@ namespace Moodify.Controllers
 		private readonly UserManager<User> userManager;
 		private readonly RoleManager<IdentityRole> roleManager;
 		private readonly IConfiguration configuration;
-		public UserController(MoodifyDbContext db, UserManager<User> userManager, IConfiguration configuration, RoleManager<IdentityRole> roleManager)
+		private readonly Services.IEmailSender emailSender;
+		public UserController(MoodifyDbContext db, UserManager<User> userManager, IConfiguration configuration, RoleManager<IdentityRole> roleManager, Services.IEmailSender emailSender)
 		{
 			this.db = db;
 			this.userManager = userManager;
 			this.configuration = configuration;
 			this.roleManager = roleManager;
+			this.emailSender = emailSender;
 		}
 
 		[HttpPost("Register")]
 		public async Task<IActionResult> Signup(registerDTO registerfromform)
 		{
-			if (ModelState.IsValid)
-			{
-				User user = new User
-				{
-					FirstName = registerfromform.Fname,
-					LastName = registerfromform.Lname,
-					Email = registerfromform.email,
-					UserName = registerfromform.email,
-					RefreshToken = TokenRequest.GenerateRefreshToken(),
-					RefreshTokenExpirytime = DateTime.UtcNow.AddDays(7)
-				};
-				IdentityResult result = await userManager.CreateAsync(user, registerfromform.password);
-				if (result.Succeeded)
-				{
-					await db.SaveChangesAsync();
+			if (!ModelState.IsValid) return BadRequest(ModelState);
 
-					return Ok("Created");
-				}
-				foreach (var error in result.Errors)
-				{
-					ModelState.AddModelError(string.Empty, error.Description);
-				}
+			var user = new User
+			{
+				FirstName = registerfromform.Fname,
+				LastName = registerfromform.Lname,
+				Email = registerfromform.email,
+				UserName = registerfromform.email,
+				RefreshToken = TokenRequest.GenerateRefreshToken(),
+				RefreshTokenExpirytime = DateTime.UtcNow.AddDays(7)
+			};
+
+			var result = await userManager.CreateAsync(user, registerfromform.password);
+			if (result.Succeeded)
+			{
+				var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
+				var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+
+				var confirmationLink = Url.Action(
+					nameof(ConfirmEmail),
+					"User",
+					new { userId = user.Id, token = encodedToken },
+					Request.Scheme);
+
+				await emailSender.SendEmailAsync(user.Email, "Confirm your email",
+					$"Please confirm your account by clicking <a href='{confirmationLink}'>here</a>");
+
+				return Ok("Registration successful. Please check your email to confirm your account.");
 			}
+
+			foreach (var error in result.Errors)
+			{
+				ModelState.AddModelError(string.Empty, error.Description);
+			}
+
 			return BadRequest(ModelState);
+		}
+		[HttpGet("ConfirmEmail")]
+		public async Task<IActionResult> ConfirmEmail(string userId, string token)
+		{
+			if (userId == null || token == null)
+				return BadRequest("Invalid email confirmation request");
+
+			var user = await userManager.FindByIdAsync(userId);
+			if (user == null)
+				return NotFound("User not found");
+
+			var decodedBytes = WebEncoders.Base64UrlDecode(token);
+			var decodedToken = Encoding.UTF8.GetString(decodedBytes);
+
+			var result = await userManager.ConfirmEmailAsync(user, decodedToken);
+			if (result.Succeeded)
+				return Ok("Email confirmed successfully");
+
+			return BadRequest("Email confirmation failed");
 		}
 		[HttpPost("Login")]
 		public async Task<IActionResult> Login(loginDTO log)
@@ -176,6 +212,40 @@ namespace Moodify.Controllers
 				refreshToken = newRefreshToken
 			});
 		}
+		[HttpPost("ForgotPassword")]
+		public async Task<IActionResult> ForgotPassword(ForgetPasswordDto model)
+		{
+			var user = await userManager.FindByEmailAsync(model.Email);
+			if (user == null || !(await userManager.IsEmailConfirmedAsync(user)))
+				return BadRequest("User does not exist or email not confirmed");
+
+			var token = await userManager.GeneratePasswordResetTokenAsync(user);
+
+			var resetLink = Url.Action(
+				nameof(ResetPassword),
+				"Account",
+				new { token, email = user.Email },
+				Request.Scheme);
+
+			// Send via email
+			await emailSender.SendEmailAsync(user.Email, "Reset Password",
+				$"Click <a href='{resetLink}'>here</a> to reset your password.");
+
+			return Ok("Password reset link sent. Please check your email.");
+		}
+		[HttpPost("ResetPassword")]
+		public async Task<IActionResult> ResetPassword(ResetPasswordDto model)
+		{
+			var user = await userManager.FindByEmailAsync(model.Email);
+			if (user == null)
+				return BadRequest("Invalid request");
+
+			var result = await userManager.ResetPasswordAsync(user, model.Token, model.NewPassword);
+			if (result.Succeeded)
+				return Ok("Password reset successfully");
+
+			return BadRequest(result.Errors);
+		}
 		[Authorize]
 		[HttpPut("UpdateInfo")]
 		public async Task<IActionResult> UpdateInfo([FromBody] updateinfodto updateInfoDto)
@@ -245,6 +315,23 @@ namespace Moodify.Controllers
 				return NotFound("No Photo Found");
 			}
 			return File(user.Photo, "image/png");
+		}
+		[Authorize]
+		[HttpGet("UserInfo")]
+		public async Task<IActionResult> GetUserInfo()
+		{
+			var user = await userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+			if (user == null)
+			{
+				return NotFound("user Not Found");
+			}
+			var userdto = new UserDataDTO
+			{
+				FirstName = user.FirstName,
+				LastName = user.LastName,
+				image = user.Photo
+			};
+			return Ok(userdto);
 		}
 	}
 }

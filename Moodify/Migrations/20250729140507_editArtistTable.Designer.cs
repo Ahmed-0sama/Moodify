@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Moodify.Models;
 
@@ -11,9 +12,11 @@ using Moodify.Models;
 namespace Moodify.Migrations
 {
     [DbContext(typeof(MoodifyDbContext))]
-    partial class MoodifyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250729140507_editArtistTable")]
+    partial class editArtistTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -320,21 +323,9 @@ namespace Moodify.Migrations
                         .HasColumnType("int")
                         .HasColumnName("music_id");
 
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<int?>("Count")
                         .HasColumnType("int")
                         .HasColumnName("count");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("musicurl")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("MusicId");
 
