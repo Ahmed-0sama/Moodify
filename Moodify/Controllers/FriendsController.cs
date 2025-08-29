@@ -27,7 +27,7 @@ namespace Moodify.Controllers
 		}
 		[Authorize]
 		[HttpGet("SearchForFriend/{query}")]
-		public async Task<IActionResult> SearchforFriend( string query)
+		public async Task<IActionResult> SearchforFriend( string query ,int pageNumber = 1, int pageSize = 10)
 		{
 			var user = await userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
 			if (user == null)
@@ -38,16 +38,32 @@ namespace Moodify.Controllers
 			{
 				return BadRequest("Search query cannot be empty");
 			}
-			var matchedUsers = await db.Users.Where(u => u.Id != user.Id &&
-			  (u.FirstName.Contains(query) || u.LastName.Contains(query)))
-			 .Select(u => new
-			 {
-			  u.Id,
-			  u.FirstName,
-			  u.LastName
-			 })
-				 .ToListAsync();
-			return Ok(matchedUsers);
+			var totalCount = await db.Users
+			.Where(u => u.Id != user.Id &&
+				   (u.FirstName.Contains(query) || u.LastName.Contains(query)))
+			.CountAsync();
+
+			var matchedUsers = await db.Users
+				.Where(u => u.Id != user.Id &&
+							(u.FirstName.Contains(query) || u.LastName.Contains(query)))
+				.OrderBy(u => u.FirstName) // always add an order when paginating
+				.Skip((pageNumber - 1) * pageSize)
+				.Take(pageSize)
+				.Select(u => new
+				{
+					u.Id,
+					u.FirstName,
+					u.LastName
+				})
+				.ToListAsync();
+			return Ok(new
+			{
+				TotalCount = totalCount,
+				PageNumber = pageNumber,
+				PageSize = pageSize,
+				TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize),
+				Data = matchedUsers
+			});
 		}
 		[Authorize]
 		[HttpPost("SendFriendRequest")]

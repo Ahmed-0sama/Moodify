@@ -216,8 +216,59 @@ namespace Moodify.Controllers
 			}).ToList();
 			return Ok(result);
 		}
+		[Authorize]
+		[HttpGet("GetAllMusic")]
+		public async Task<IActionResult> GetAllMusic(int pageNumber = 1, int pageSize = 10)
+		{
+			var user = await userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+			if (user == null)
+			{
+				return Unauthorized();
+			}
+			var query = db.Musics.AsQueryable();
 
+			// Total count for frontend
+			var totalCount = await query.CountAsync();
+
+			// Apply pagination
+			var musicList = await query
+				.OrderBy(m => m.ContentType) // Make sure ordering is applied
+				.Skip((pageNumber - 1) * pageSize)
+				.Take(pageSize)
+				.ToListAsync();
+
+			// Return results with metadata
+			return Ok(new
+			{
+				TotalCount = totalCount,
+				PageNumber = pageNumber,
+				PageSize = pageSize,
+				TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize),
+				Data = musicList
+			});
+		}
+		[Authorize]
+		[HttpGet("GetMusicById{id}")]
+		public async Task<IActionResult> GetMusicById(int id)
+		{
+			var user = await userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+			if (user == null)
+			{
+				return Unauthorized();
+			}
+			var music = await db.Musics.FirstOrDefaultAsync(s => s.MusicId == id);
+			if (music != null)
+			{
+				var dto = new SendMusicDto()
+				{
+					ContentType = music.ContentType,
+					Title = music.Title,
+					count = music.Count,
+					musicurl = music.musicurl
+				};
+				return Ok(dto);
+			}
+			return NotFound();
+		}
 	}
-	
 }
-

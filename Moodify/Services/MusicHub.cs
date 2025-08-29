@@ -98,7 +98,15 @@ namespace Moodify.Services
 			await Clients.Users(friends)
 				.SendAsync("ReceivePause", musicId, userId);
 		}
+		public async Task RespondWithPosition(string musicId, double currentTime, string requesterId)
+		{
+			var userId = Context.UserIdentifier;
+			if (string.IsNullOrEmpty(userId)) return;
 
+			// Send A’s position back to the requester (friend B)
+			await Clients.User(requesterId)
+				.SendAsync("ReceivePosition", musicId, currentTime, userId);
+		}
 		public async Task RequestSync(string friendId, string musicId)
 		{
 			var userId = Context.UserIdentifier;

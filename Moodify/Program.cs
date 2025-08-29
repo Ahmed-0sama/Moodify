@@ -16,6 +16,7 @@ var builder = WebApplication.CreateBuilder(args);
 IdentityModelEventSource.ShowPII = true;
 // Add services to the container
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
 builder.Services.AddSingleton<SpotifyTokenManager>();
 builder.Services.AddDbContext<MoodifyDbContext>(options =>
 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -95,5 +96,5 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-
+app.MapHub<MusicHub>("/musichub");
 app.Run();
