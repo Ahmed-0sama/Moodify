@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Moodify.Models;
 
@@ -11,9 +12,11 @@ using Moodify.Models;
 namespace Moodify.Migrations
 {
     [DbContext(typeof(MoodifyDbContext))]
-    partial class MoodifyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250829185329_edit")]
+    partial class edit
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
