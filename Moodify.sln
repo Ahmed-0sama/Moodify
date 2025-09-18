@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36203.30 d17.14
+VisualStudioVersion = 17.14.36203.30
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Moodify", "Moodify\Moodify.csproj", "{523BEFB0-465B-43AC-B724-E795D43E1768}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FacialExpression", "ConsoleApp1\FacialExpression.csproj", "{47D06E93-6112-411B-8B9F-01D3DC406FCA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{523BEFB0-465B-43AC-B724-E795D43E1768}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{523BEFB0-465B-43AC-B724-E795D43E1768}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{523BEFB0-465B-43AC-B724-E795D43E1768}.Release|Any CPU.Build.0 = Release|Any CPU
+		{47D06E93-6112-411B-8B9F-01D3DC406FCA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{47D06E93-6112-411B-8B9F-01D3DC406FCA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{47D06E93-6112-411B-8B9F-01D3DC406FCA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{47D06E93-6112-411B-8B9F-01D3DC406FCA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
