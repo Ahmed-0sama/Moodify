@@ -46,8 +46,8 @@ namespace Moodify.Controllers
 			await db.SaveChangesAsync();
 			return Ok("Artist added successfully");
 		}
-		[HttpGet("SearchArtistInfo/{query}")]
 		[Authorize]
+		[HttpGet("SearchArtistInfo/{query}")]
 		public async Task<IActionResult> SearchArtistInfo(string query)
 		{
 			var user = await userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
@@ -67,8 +67,8 @@ namespace Moodify.Controllers
 				.ToListAsync();
 			return Ok(matchingArtists);
 		}
-		[HttpGet("GetArtistInfo")]
 		[Authorize]
+		[HttpGet("GetArtistInfo")]
 		public async Task<IActionResult> GetArtistInfo([FromBody] int id)
 		{
 			var user = await userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);

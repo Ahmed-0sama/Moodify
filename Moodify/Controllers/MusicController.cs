@@ -36,7 +36,7 @@ namespace Moodify.Controllers
 		{ "surprised", "fun" },
 		{ "confident", "power" }
 };
-		public MusicController(UserManager<User> userManager, IConfiguration configuration,SpotifyTokenManager spotifyTokenManager, MoodifyDbContext db)
+		public MusicController(UserManager<User> userManager, IConfiguration configuration, SpotifyTokenManager spotifyTokenManager, MoodifyDbContext db)
 		{
 			this.userManager = userManager;
 			this.configuration = configuration;
@@ -46,7 +46,7 @@ namespace Moodify.Controllers
 		}
 		[Authorize]
 		[HttpGet("searchformusic")]
-		public async Task<IActionResult> SearchForMusic([FromQuery]string query)
+		public async Task<IActionResult> SearchForMusic([FromQuery] string query)
 		{
 			var user = userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
 			if (user == null)
@@ -55,13 +55,14 @@ namespace Moodify.Controllers
 			}
 			var localResults = await db.Musics
 			.Where(m => m.Title.Contains(query))
-			.Select(m => new {
-			m.MusicId,
-			m.Title,
-			m.ContentType,
-			m.musicurl,
-			m.Count,
-			Source = "Local"
+			.Select(m => new
+			{
+				m.MusicId,
+				m.Title,
+				m.Category,
+				m.musicurl,
+				m.Count,
+				Source = "Local"
 			})
 			.ToListAsync();
 			var token = await spotifyTokenManager.GetAccessTokenAsync();
@@ -76,7 +77,8 @@ namespace Moodify.Controllers
 			if (!response.IsSuccessStatusCode)
 				return StatusCode((int)response.StatusCode, content);
 			var spotifyResults = JsonConvert.DeserializeObject<JObject>(content)["tracks"]["items"]
-			.Select(t => new {
+			.Select(t => new
+			{
 				Id = (string)t["id"],
 				Title = (string)t["name"],
 				Artist = string.Join(", ", t["artists"].Select(a => (string)a["name"])),
@@ -93,8 +95,8 @@ namespace Moodify.Controllers
 			return Ok(combinedResults);
 		}
 		[Authorize]
-		[HttpGet("searchbymood")]
-		public async Task<IActionResult> searchbymood([FromQuery]string query)
+		[HttpGet("searchbymoodSpotify")]
+		public async Task<IActionResult> searchbymood([FromQuery] string query)
 		{
 			var user = userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
 			if (user == null)
@@ -105,8 +107,16 @@ namespace Moodify.Controllers
 			{
 				return NotFound("Not valid mood");
 			}
-			string mood = EmotionToMood[query.ToLower()];//get the mood to seach for
+			var content = await SearchSpotifyByMoodAsync(query);
+
+			return Content(content, "application/json");
+		}
+		private async Task<string> SearchSpotifyByMoodAsync(string query)
+		{
+			string mood = EmotionToMood[query.ToLower()]; // map emotion → mood
+
 			var token = await spotifyTokenManager.GetAccessTokenAsync();
+
 			using var client = new HttpClient();
 			client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -116,9 +126,12 @@ namespace Moodify.Controllers
 			var content = await response.Content.ReadAsStringAsync();
 
 			if (!response.IsSuccessStatusCode)
-				return StatusCode((int)response.StatusCode, content);
+			{
+				// Throw exception or just return content with error info
+				throw new Exception($"Spotify API error: {response.StatusCode}, {content}");
+			}
 
-			return Content(content, "application/json");
+			return content; // JSON string from Spotify
 		}
 		[Authorize(Roles = "Admin")]
 		[HttpPost("AddSong")]
@@ -145,13 +158,13 @@ namespace Moodify.Controllers
 				var music = new Music
 				{
 					Title = dto.title,
-					ContentType = dto.ContentType,
+					Category = dto.ContentType,
 					musicurl = blobClient.Uri.ToString(),
-					
+
 				};
 				await db.Musics.AddAsync(music);
 				await db.SaveChangesAsync();
-				foreach(var artist in dto.ArtistIds)
+				foreach (var artist in dto.ArtistIds)
 				{
 					var artistmusic = new ArtistMusic
 					{
@@ -204,14 +217,14 @@ namespace Moodify.Controllers
 			{
 				return NotFound("User Not Found");
 			}
-			var list = await db.Musics.Where(s => s.ContentType == type).ToListAsync();
+			var list = await db.Musics.Where(s => s.Category == type).ToListAsync();
 			var result = list.Select(item => new SendMusicDto
 			{
 				MusicId = item.MusicId,
 				Title = item.Title,
 				musicurl = item.musicurl,
 				ContentType =
-				item.ContentType,
+				item.Category,
 				count = item.Count
 			}).ToList();
 			return Ok(result);
@@ -232,7 +245,7 @@ namespace Moodify.Controllers
 
 			// Apply pagination
 			var musicList = await query
-				.OrderBy(m => m.ContentType) // Make sure ordering is applied
+				.OrderBy(m => m.Category) // Make sure ordering is applied
 				.Skip((pageNumber - 1) * pageSize)
 				.Take(pageSize)
 				.ToListAsync();
@@ -261,7 +274,7 @@ namespace Moodify.Controllers
 			{
 				var dto = new SendMusicDto()
 				{
-					ContentType = music.ContentType,
+					ContentType = music.Category,
 					Title = music.Title,
 					count = music.Count,
 					musicurl = music.musicurl
@@ -270,5 +283,136 @@ namespace Moodify.Controllers
 			}
 			return NotFound();
 		}
+		[HttpGet("GetMuiscByCategory{category}")]
+		public async Task<IActionResult> GetMuiscByCategory(
+		string category,
+		int pageNumber = 1,
+		int pageSize = 10)
+		{
+			// Get current user
+			var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+			var user = await userManager.FindByIdAsync(userId);
+
+			if (user == null)
+			{
+				return Unauthorized("User not found or not logged in.");
+			}
+
+			// Query musics by category
+			var query = db.Musics.Where(s => s.Category == category);
+
+			var totalCount = await query.CountAsync();
+
+			var musics = await db.Musics
+				.Where(m => m.Category == category)
+				.Include(m => m.ArtistMusics)
+					.ThenInclude(am => am.Artist) // load related artist
+				.Skip((pageNumber - 1) * pageSize)
+				.Take(pageSize)
+				.Select(m => new GetMusicDto
+				{
+					MusicId = m.MusicId,
+					Title = m.Title,
+					MusicUrl = m.musicurl,
+					Category = m.Category,
+					Count = m.Count,
+					Artists = m.ArtistMusics.Select(am => new artistInfoDTO
+					{
+						artistid = am.Artist.ArtistId,
+						ArtistName = am.Artist.ArtistName
+					}).ToList()
+				})
+				.ToListAsync();
+
+			// Build response
+			var response = new PagedResponseDto<GetMusicDto>
+			{
+				TotalCount = totalCount,
+				PageNumber = pageNumber,
+				PageSize = pageSize,
+				TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize),
+				Data = musics
+			};
+
+			return Ok(response);
+		}
+		[Authorize]
+		[HttpPost("upload-frame")]
+		public async Task<IActionResult> UploadFrame(IFormFile file)
+		{
+			var user = await userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+			if (user == null)
+				return Unauthorized();
+
+			if (file == null || file.Length == 0)
+				return BadRequest("No file provided.");
+
+			try
+			{
+				// Send frame to Python FastAPI
+				using var client = new HttpClient();
+				using var content = new MultipartFormDataContent();
+				content.Add(new StreamContent(file.OpenReadStream()), "file", file.FileName);
+
+				var response = await client.PostAsync("http://127.0.0.1:8000/predict", content);
+				var result = await response.Content.ReadAsStringAsync();
+
+				if (!response.IsSuccessStatusCode)
+					return StatusCode((int)response.StatusCode, result);
+
+				//Parse emotion JSON from Python
+				var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(result);
+				var emotion = dict?["expression"]?.ToLower();
+
+				if (string.IsNullOrEmpty(emotion) || !EmotionToMood.ContainsKey(emotion))
+					return NotFound($"No mood mapping found for emotion: {emotion ?? "unknown"}");
+
+				var mood = EmotionToMood[emotion];
+
+				//Call both Spotify + Local DB in parallel
+				var spotifyTask = SearchSpotifyByMoodAsync(mood);
+				var localTask = SearchSpotifyBySite(mood);
+
+				await Task.WhenAll(spotifyTask, localTask);
+
+				var spotifyJson = spotifyTask.Result;
+				var siteJson = localTask.Result;
+
+				var spotifyData = System.Text.Json.JsonSerializer.Deserialize<object>(spotifyJson);
+				var siteData = System.Text.Json.JsonSerializer.Deserialize<object>(siteJson);
+
+				// Return combined musics
+				return Ok(new
+				{
+					emotion,
+					mood,
+					spotify = spotifyData,
+					local = siteData
+				});
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, $"Error: {ex.Message}");
+			}
+		}
+
+		private async Task<string> SearchSpotifyBySite(string query)
+		{
+
+			var musics = await db.Musics
+						 .Where(q => q.Category.ToLower() == query.ToLower())
+						 .Select(m => new
+						 {
+							 m.musicurl,
+							 m.Title,
+							 m.ArtistMusics,
+							 m.Category
+						 })
+						 .ToListAsync();
+
+			// Convert result to JSON string
+			return System.Text.Json.JsonSerializer.Serialize(musics);
+		}
 	}
+
 }
