@@ -79,6 +79,7 @@ builder.Services.AddSwaggerGen(options =>
 		}
 	});
 });
+builder.Services.AddScoped<IEmailSender, EmailSender>();
 var app = builder.Build();
 
 // Use Swagger in development
