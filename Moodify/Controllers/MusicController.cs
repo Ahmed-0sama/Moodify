@@ -13,6 +13,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Net.Http.Headers;
 using System.Security.Claims;
+using System.Text.Json;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace Moodify.Controllers
@@ -107,11 +108,12 @@ namespace Moodify.Controllers
 			{
 				return NotFound("Not valid mood");
 			}
-			var content = await SearchSpotifyByMoodAsync(query);
+			var playlists = await SearchSpotifyByMoodAsync(query);
 
-			return Content(content, "application/json");
+			var response = playlists.Select(p => new { name = p.Name, link = p.Link });
+			return Ok(response);
 		}
-		private async Task<string> SearchSpotifyByMoodAsync(string query)
+		private async Task<List<(string Name, string Link)>> SearchSpotifyByMoodAsync(string query)
 		{
 			string mood = EmotionToMood[query.ToLower()]; // map emotion → mood
 
@@ -130,8 +132,26 @@ namespace Moodify.Controllers
 				// Throw exception or just return content with error info
 				throw new Exception($"Spotify API error: {response.StatusCode}, {content}");
 			}
+			var results = new List<(string Name, string Link)>();
 
-			return content; // JSON string from Spotify
+			using (JsonDocument doc = JsonDocument.Parse(content))
+			{
+				var items = doc.RootElement
+							   .GetProperty("playlists")
+							   .GetProperty("items");
+
+				foreach (var item in items.EnumerateArray())
+				{
+					if (item.ValueKind == JsonValueKind.Null) continue;
+
+					string name = item.GetProperty("name").GetString();
+					string link = item.GetProperty("external_urls")
+									  .GetProperty("spotify").GetString();
+
+					results.Add((name, link));
+				}
+			}
+			return results; // JSON string from after edit it Spotify
 		}
 		[Authorize(Roles = "Admin")]
 		[HttpPost("AddSong")]
@@ -375,10 +395,10 @@ namespace Moodify.Controllers
 
 				await Task.WhenAll(spotifyTask, localTask);
 
-				var spotifyJson = spotifyTask.Result;
+				var spotifyData = spotifyTask.Result
+				.Select(p => new { name = p.Name, link = p.Link })
+				.ToList();
 				var siteJson = localTask.Result;
-
-				var spotifyData = System.Text.Json.JsonSerializer.Deserialize<object>(spotifyJson);
 				var siteData = System.Text.Json.JsonSerializer.Deserialize<object>(siteJson);
 
 				// Return combined musics
