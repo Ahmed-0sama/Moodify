@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Moodify.BAL.Interfaces;
 using Moodify.Models;
 using Moodify.Services;
 using System;

@@ -1,4 +1,4 @@
-﻿namespace Moodify.Services
+﻿namespace Moodify.BAL.Interfaces
 {
 	public interface IEmailSender
 	{

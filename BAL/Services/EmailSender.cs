@@ -1,4 +1,6 @@
 ﻿using Azure.Core;
+using Microsoft.Extensions.Configuration;
+using Moodify.BAL.Interfaces;
 using System.Net;
 using System.Net.Mail;
 

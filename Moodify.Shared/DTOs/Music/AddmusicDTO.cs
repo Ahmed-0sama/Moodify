@@ -1,4 +1,6 @@
-﻿namespace Moodify.DTO
+﻿using Microsoft.AspNetCore.Http;
+
+namespace Moodify.DTO
 {
 	public class addmusicDTO
 	{

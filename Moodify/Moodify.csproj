@@ -33,4 +33,9 @@
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="9.0.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\BAL\Moodify.BAL.csproj" />
+    <ProjectReference Include="..\Moodify.Shared\Moodify.Shared.csproj" />
+  </ItemGroup>
+
 </Project>

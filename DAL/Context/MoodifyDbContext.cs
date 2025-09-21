@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Moodify.DAL.Entities;
 
 namespace Moodify.Models;
 
@@ -17,6 +18,7 @@ public partial class MoodifyDbContext : IdentityDbContext<User>
 	public virtual DbSet<Music> Musics { get; set; }
 	public virtual DbSet<FriendReq> FriendReqs { get; set; }
 	public virtual DbSet<Friends> Friends { get; set; }
+	public DbSet<Permission> Permissions { get; set; }
 
 	protected override void OnModelCreating(ModelBuilder modelBuilder)
 	{

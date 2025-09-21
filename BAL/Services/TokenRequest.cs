@@ -8,8 +8,6 @@ namespace Moodify.Services
 {
 	public class TokenRequest
 	{
-			public string AccessToken { get; set; }
-			public string RefreshToken { get; set; }
 			public static string GenerateRefreshToken()
 			{
 				var randomNumber = new byte[32];

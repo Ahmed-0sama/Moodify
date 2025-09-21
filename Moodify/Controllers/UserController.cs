@@ -2,12 +2,16 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.AspNetCore.Identity.UI.V4.Pages.Account.Internal;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.IdentityModel.Tokens;
+using Moodify.BAL.Interfaces;
+using Moodify.BAL.Services;
 using Moodify.DTO;
 using Moodify.Models;
 using Moodify.Services;
+using Moodify.Shared.DTOs.Users;
 using Newtonsoft.Json.Linq;
 using System;
 using System.IdentityModel.Tokens.Jwt;
@@ -24,193 +28,72 @@ namespace Moodify.Controllers
 	{
 
 		MoodifyDbContext db;
-		private readonly UserManager<User> userManager;
-		private readonly RoleManager<IdentityRole> roleManager;
 		private readonly IConfiguration configuration;
-		private readonly Services.IEmailSender emailSender;
-		public UserController(MoodifyDbContext db, UserManager<User> userManager, IConfiguration configuration, RoleManager<IdentityRole> roleManager, Services.IEmailSender emailSender)
+		private readonly BAL.Interfaces.IEmailSender emailSender;
+		private readonly IAuthService authService;
+		public UserController(MoodifyDbContext db, IConfiguration configuration,BAL.Interfaces.IEmailSender emailSender,IAuthService authService)
 		{
 			this.db = db;
-			this.userManager = userManager;
 			this.configuration = configuration;
-			this.roleManager = roleManager;
 			this.emailSender = emailSender;
+			this.authService = authService;
 		}
 
 		[HttpPost("Register")]
-		public async Task<IActionResult> Signup(registerDTO registerfromform)
+		public async Task<IActionResult> Register([FromBody] Shared.DTOs.Users.RegisterModel model)
 		{
-			if (!ModelState.IsValid) return BadRequest(ModelState);
+			var result = await authService.RegisterAsync(model);
 
-			var user = new User
+			if (!string.IsNullOrEmpty(result.Message) && result.IsAuthenticated == false)
 			{
-				FirstName = registerfromform.Fname,
-				LastName = registerfromform.Lname,
-				Email = registerfromform.email,
-				UserName = registerfromform.email,
-				RefreshToken = TokenRequest.GenerateRefreshToken(),
-				RefreshTokenExpirytime = DateTime.UtcNow.AddDays(7)
-			};
+				if (result.RefreshToken != null) // using RefreshToken as placeholder for email token
+				{
+					var confirmationLink = Url.Action(
+						nameof(ConfirmEmail),
+						"User",
+						new { userId = result.Userid, token = result.RefreshToken },
+						Request.Scheme);
 
-			var result = await userManager.CreateAsync(user, registerfromform.password);
-			if (result.Succeeded)
-			{
-				var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
-				var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+					await emailSender.SendEmailAsync(result.Email, "Confirm your email",
+						$"Please confirm your account by clicking <a href='{confirmationLink}'>here</a>");
+				}
 
-				var confirmationLink = Url.Action(
-					nameof(ConfirmEmail),
-					"User",
-					new { userId = user.Id, token = encodedToken },
-					Request.Scheme);
-
-				await emailSender.SendEmailAsync(user.Email, "Confirm your email",
-					$"Please confirm your account by clicking <a href='{confirmationLink}'>here</a>");
-
-				return Ok("Registration successful. Please check your email to confirm your account.");
+				return Ok(result.Message);
 			}
 
-			foreach (var error in result.Errors)
-			{
-				ModelState.AddModelError(string.Empty, error.Description);
-			}
-
-			return BadRequest(ModelState);
+			return BadRequest(result.Message);
 		}
 		[HttpGet("ConfirmEmail")]
 		public async Task<IActionResult> ConfirmEmail(string userId, string token)
 		{
-			if (userId == null || token == null)
-				return BadRequest("Invalid email confirmation request");
+			var result = await authService.ConfirmEmailAsync(userId, token);
 
-			var user = await userManager.FindByIdAsync(userId);
-			if (user == null)
-				return NotFound("User not found");
+			if (result == "Email confirmed successfully")
+				return Ok(result);
 
-			var decodedBytes = WebEncoders.Base64UrlDecode(token);
-			var decodedToken = Encoding.UTF8.GetString(decodedBytes);
-
-			var result = await userManager.ConfirmEmailAsync(user, decodedToken);
-			if (result.Succeeded)
-				return Ok("Email confirmed successfully");
-
-			return BadRequest("Email confirmation failed");
+			return BadRequest(result);
 		}
 		[HttpPost("Login")]
-		public async Task<IActionResult> Login(loginDTO log)
+		public async Task<IActionResult> Login(TokenRequestModel log)
 		{
-			if (ModelState.IsValid)
+			if (!ModelState.IsValid)
 			{
-				var userdb = await userManager.FindByNameAsync(log.email);
-				if (userdb != null)
-				{
-					bool isPasswordCorrect = await userManager.CheckPasswordAsync(userdb, log.password);
-					if (isPasswordCorrect)
-					{
-						var userClaims = new List<Claim>
-						{
-							new Claim (JwtRegisteredClaimNames.Jti,Guid.NewGuid().ToString()),
-							new Claim(ClaimTypes.NameIdentifier,userdb.Id),
-							new Claim(ClaimTypes.Name,userdb.UserName),
-						};
-						var userRole = await userManager.GetRolesAsync(userdb);
-						foreach (var role in userRole)
-						{
-							userClaims.Add(new Claim(ClaimTypes.Role, role));
-						}
-						var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"]));
-						var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-						var token = new JwtSecurityToken(
-							issuer: configuration["Jwt:Issuer"],
-							audience: configuration["Jwt:Audience"],
-							claims: userClaims,
-							expires: DateTime.UtcNow.AddMinutes(30),
-							signingCredentials: creds
-						);
-
-						var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
-
-						string refreshToken = TokenRequest.GenerateRefreshToken();
-						userdb.RefreshToken = refreshToken;
-						userdb.RefreshTokenExpirytime = DateTime.UtcNow.AddDays(7);
-						await userManager.UpdateAsync(userdb);
-
-						return Ok(new
-						{
-							token = accessToken,
-							expiration = token.ValidTo,
-							refreshToken = refreshToken
-						});
-					}
-				}
-				ModelState.AddModelError("UserName", "Invalid UserName or Password");
+				return BadRequest(ModelState);
 			}
-			return BadRequest(ModelState);
+			var result = await authService.GetTokenAsync(log);
+			if (!result.IsAuthenticated)
+				return BadRequest(result.Message);
+			return Ok(result);
 		}
 		[HttpPost("RefreshToken")]
 		public async Task<IActionResult> RefreshToken(RefreshTokenDTO refreshTokenDTO)
 		{
-			if (string.IsNullOrEmpty(refreshTokenDTO.RefreshToken) || string.IsNullOrEmpty(refreshTokenDTO.AccessToken))
-			{
-				return BadRequest("Invalid token request");
-			}
-
-			var principal = TokenRequest.GetPrincipalFromExpiredToken(
-			refreshTokenDTO.AccessToken,
-			configuration["Jwt:Key"],
-			configuration["Jwt:Issuer"],
-			configuration["Jwt:Audience"]
-			);
-			if (principal == null)
-			{
-				return Unauthorized("Invalid or expired access token");
-			}
-
-			var username = principal.Identity?.Name;
-			var userdb = await userManager.FindByNameAsync(username);
-
-			// Fixed: Added refresh token validation and changed to UtcNow
-			if (userdb == null || userdb.RefreshToken != refreshTokenDTO.RefreshToken || userdb.RefreshTokenExpirytime <= DateTime.UtcNow)
-			{
-				return Unauthorized("Invalid or expired refresh token");
-			}
-
-			var userClaims = new List<Claim>
-			{
-				new Claim (JwtRegisteredClaimNames.Jti,Guid.NewGuid().ToString()),
-				new Claim(ClaimTypes.NameIdentifier,userdb.Id),
-				new Claim(ClaimTypes.Name,userdb.UserName)
-			};
-			var userRoles = await userManager.GetRolesAsync(userdb);
-			foreach (var role in userRoles)
-			{
-				userClaims.Add(new Claim(ClaimTypes.Role, role));
-			}
-
-			var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"]));
-			var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-			var newToken = new JwtSecurityToken(
-				issuer: configuration["Jwt:Issuer"],
-				audience: configuration["Jwt:Audience"],
-				claims: userClaims,
-				expires: DateTime.UtcNow.AddMinutes(30),
-				signingCredentials: creds
-			);
-
-			var newAccessToken = new JwtSecurityTokenHandler().WriteToken(newToken);
-
-			string newRefreshToken = TokenRequest.GenerateRefreshToken();
-			userdb.RefreshToken = newRefreshToken;
-			userdb.RefreshTokenExpirytime = DateTime.UtcNow.AddDays(7); // Fixed: Changed to UtcNow
-			await userManager.UpdateAsync(userdb);
-
-			return Ok(new
-			{
-				token = newAccessToken,
-				expiration = newToken.ValidTo,
-				refreshToken = newRefreshToken
-			});
+			if(string.IsNullOrEmpty(refreshTokenDTO.RefreshToken))
+				return BadRequest("Invalid Token");
+			var result = await authService.RefreshTokenAsync(refreshTokenDTO.RefreshToken);
+			if (!result.IsAuthenticated)
+				return BadRequest(result.Message);
+			return Ok(result);
 		}
 		[HttpPost("ForgotPassword")]
 		public async Task<IActionResult> ForgotPassword(ForgetPasswordDto model)

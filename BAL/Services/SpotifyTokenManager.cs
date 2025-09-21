@@ -1,10 +1,12 @@
-﻿using System.Net.Http.Headers;
+﻿using Microsoft.Extensions.Configuration;
+using Moodify.BAL.Interfaces;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
 namespace Moodify.Services
 {
-	public class SpotifyTokenManager
+	public class SpotifyTokenManager:ISpotifyTokenManager
 	{
 		private readonly string clientId;
 		private readonly string clientSecret;
