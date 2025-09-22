@@ -27,6 +27,7 @@ namespace Moodify.BAL.Services
 		private readonly UserManager<User> _userManager;
 		private readonly RoleManager<IdentityRole> roleManager;
 		private readonly JWT _jwt;
+		private readonly IEmailSender _emailSender;
 		public AuthService(UserManager<User> userManager,RoleManager<IdentityRole> roleManager,IOptions<JWT>jwt)
 		{
 			_userManager = userManager;
@@ -153,6 +154,31 @@ namespace Moodify.BAL.Services
 			var result = await _userManager.ConfirmEmailAsync(user, decodedToken);
 
 			return result.Succeeded ? "Email confirmed successfully" : "Email confirmation failed";
+		}
+		public async Task<string>ForgetPasswordAsync(string email, string origin)
+		{
+			var user = await _userManager.FindByEmailAsync(email);
+			if (user == null || !(await _userManager.IsEmailConfirmedAsync(user)))
+				return "User not found or Email not confirmed";
+			var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+			var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+			var resetUrl = $"{origin}/resetpassword?token={encodedToken}&email={email}";
+			await _emailSender.SendEmailAsync(email, "Reset Password",
+				$"Please reset your password by clicking <a href='{resetUrl}'>here</a>");
+			return "Password reset link has been sent to your email";
+		}
+		public async Task<IdentityResult> ResetPasswordAsync(ResetPasswordDto model)
+		{
+			var user = await _userManager.FindByEmailAsync(model.Email);
+			if (user == null)
+				return IdentityResult.Failed(new IdentityError
+				{
+					Description = "User not found"
+				});
+			var decodedBytes = WebEncoders.Base64UrlDecode(model.Token);
+			var decodedToken = Encoding.UTF8.GetString(decodedBytes);
+			 return await _userManager.ResetPasswordAsync(user, decodedToken, model.NewPassword);
+		
 		}
 		private async Task<JwtSecurityToken>CreateJwtToken(User user)
 		{

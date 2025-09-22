@@ -15,9 +15,4 @@
     <PackageReference Include="System.Security.Permissions" Version="6.0.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\DAL\Moodify.DAL.csproj" />
-    <ProjectReference Include="..\Moodify.Shared\Moodify.Shared.csproj" />
-  </ItemGroup>
-
 </Project>

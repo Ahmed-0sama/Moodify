@@ -31,12 +31,16 @@ namespace Moodify.Controllers
 		private readonly IConfiguration configuration;
 		private readonly BAL.Interfaces.IEmailSender emailSender;
 		private readonly IAuthService authService;
-		public UserController(MoodifyDbContext db, IConfiguration configuration,BAL.Interfaces.IEmailSender emailSender,IAuthService authService)
+		private readonly IUserService userService;
+		private readonly UserManager<User> userManager;
+		public UserController(MoodifyDbContext db, IConfiguration configuration,BAL.Interfaces.IEmailSender emailSender,IAuthService authService,IUserService userService,UserManager<User> userManager)
 		{
 			this.db = db;
 			this.configuration = configuration;
 			this.emailSender = emailSender;
 			this.authService = authService;
+			this.userService = userService;
+			this.userManager = userManager;
 		}
 
 		[HttpPost("Register")]
@@ -98,36 +102,20 @@ namespace Moodify.Controllers
 		[HttpPost("ForgotPassword")]
 		public async Task<IActionResult> ForgotPassword(ForgetPasswordDto model)
 		{
-			var user = await userManager.FindByEmailAsync(model.Email);
-			if (user == null || !(await userManager.IsEmailConfirmedAsync(user)))
-				return BadRequest("User does not exist or email not confirmed");
-
-			var token = await userManager.GeneratePasswordResetTokenAsync(user);
-
-			var resetLink = Url.Action(
-				nameof(ResetPassword),
-				"Account",
-				new { token, email = user.Email },
-				Request.Scheme);
-
-			// Send via email
-			await emailSender.SendEmailAsync(user.Email, "Reset Password",
-				$"Click <a href='{resetLink}'>here</a> to reset your password.");
-
-			return Ok("Password reset link sent. Please check your email.");
+			var result = await authService.ForgetPasswordAsync(model.Email, model.origin);
+			if (result == "If an account with that email exists, a password reset link has been sent.")
+				return Ok(result);
+			return BadRequest(result);
 		}
 		[HttpPost("ResetPassword")]
 		public async Task<IActionResult> ResetPassword(ResetPasswordDto model)
 		{
-			var user = await userManager.FindByEmailAsync(model.Email);
-			if (user == null)
-				return BadRequest("Invalid request");
+			var result = await authService.ResetPasswordAsync(model);
 
-			var result = await userManager.ResetPasswordAsync(user, model.Token, model.NewPassword);
 			if (result.Succeeded)
 				return Ok("Password reset successfully");
 
-			return BadRequest(result.Errors);
+			return BadRequest(result.Errors.Select(e => e.Description));
 		}
 		[Authorize]
 		[HttpPut("UpdateInfo")]
@@ -145,76 +133,47 @@ namespace Moodify.Controllers
 			}
 			var user = await userManager.FindByIdAsync(userId);
 			if (user == null)
-			{
 				return NotFound($"User with ID {userId} not found.");
-			}
 
-			user.FirstName = updateInfoDto.fname;
-			user.LastName = updateInfoDto.lname;
-		
-			var result = await userManager.UpdateAsync(user);
-			if (result.Succeeded)
-			{
-				return Ok(new { Message = "User information updated successfully." });
-			}
-			else
-			{
-				return BadRequest(result.Errors);
-			}
+			var result = await userService.UpdateUserProfileAsync(updateInfoDto, user);
+
+			return result == "Profile updated successfully"
+				? Ok(new { Message = result })
+				: BadRequest(result);
 		}
 		[Authorize]
 		[HttpPost("uploadpicture")]
 		public async Task<IActionResult> uploadpicture([FromBody]IFormFile file)
 		{
-			if (file == null || file.Length == 0)
-			{
-				return BadRequest("Invalid File");
-			}
-			var user = await userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-			if (user == null)
-			{
-				return NotFound("User Not Found");
-			}
-			using (var memorystream = new MemoryStream())
-			{
-				await file.CopyToAsync(memorystream);
-				user.Photo = memorystream.ToArray();
+			var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+			var result = await userService.UploadProfilePictureAsync(userId, file);
 
-			}
-			await userManager.UpdateAsync(user);
-			return Ok(new { Message = "Photo uploaded Sucessfully!" });
+			return result == "Profile picture uploaded successfully"
+				? Ok(new { Message = result })
+				: BadRequest(result);
 		}
 		[Authorize]
 		[HttpGet("GetPhoto")]
 		public async Task<IActionResult> GetPhoto()
 		{
-			var user = await userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
-			if (user == null)
-			{
-				return NotFound("User Not Found");
-			}
-			if (user.Photo == null)
-			{
+			var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+			var photo = await userService.GetProfilePictureAsync(userId);
+
+			if (photo == null)
 				return NotFound("No Photo Found");
-			}
-			return File(user.Photo, "image/png");
+
+			return File(photo, "image/png");
 		}
 		[Authorize]
 		[HttpGet("UserInfo")]
 		public async Task<IActionResult> GetUserInfo()
 		{
-			var user = await userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-			if (user == null)
-			{
-				return NotFound("user Not Found");
-			}
-			var userdto = new UserDataDTO
-			{
-				FirstName = user.FirstName,
-				LastName = user.LastName,
-				image = user.Photo
-			};
-			return Ok(userdto);
+			var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+			var userDto = await userService.GetInfoAsync(userId);
+
+			return userDto == null
+				? NotFound("User Not Found")
+				: Ok(userDto);
 		}
 	}
 }

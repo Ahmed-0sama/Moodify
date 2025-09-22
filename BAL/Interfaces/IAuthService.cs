@@ -1,4 +1,5 @@
-﻿using Moodify.DAL.Entities;
+﻿using Microsoft.AspNetCore.Identity;
+using Moodify.DAL.Entities;
 using Moodify.DTO;
 using Moodify.Models;
 using Moodify.Shared.DTOs.Users;
@@ -17,5 +18,7 @@ namespace Moodify.BAL.Interfaces
 		Task<AuthModel> RefreshTokenAsync(string refreshToken);
 		Task<string>AddRoleAsync(AddRoleModel model);
 		Task<string>ConfirmEmailAsync(string userId, string token);
+		Task<string> ForgetPasswordAsync(string email, string origin);
+		Task<IdentityResult> ResetPasswordAsync(ResetPasswordDto model);
 	}
 }

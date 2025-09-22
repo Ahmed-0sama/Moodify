@@ -35,6 +35,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BAL\Moodify.BAL.csproj" />
+    <ProjectReference Include="..\DAL\Moodify.DAL.csproj" />
     <ProjectReference Include="..\Moodify.Shared\Moodify.Shared.csproj" />
   </ItemGroup>
 
