@@ -27,7 +27,6 @@ namespace Moodify.Services
 
 			return accessToken;
 		}
-
 		private async Task RefreshAccessTokenAsync()
 		{
 			var auth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}"));

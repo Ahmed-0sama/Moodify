@@ -26,7 +26,7 @@ options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnectio
 builder.Services.AddIdentity<User, IdentityRole>()
 	.AddEntityFrameworkStores<MoodifyDbContext>()
 	.AddDefaultTokenProviders();
-
+builder.Services.AddScoped<IFriendService, FriendService>();
 // JWT Configuration
 builder.Services.Configure<JWT>(builder.Configuration.GetSection("Jwt"));
 var jwtSection = builder.Configuration.GetSection("Jwt");
