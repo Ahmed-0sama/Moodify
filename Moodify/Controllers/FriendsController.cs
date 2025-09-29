@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Moodify.DTO;
-using Moodify.Migrations;
 using Moodify.Models;
 using System;
 using System.Security.Claims;

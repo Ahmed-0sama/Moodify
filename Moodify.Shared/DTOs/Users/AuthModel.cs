@@ -14,6 +14,7 @@ namespace Moodify.DAL.Entities
 		// User info for the client
 		public string Username { get; set; }
 		public string Userid { get; set; }
+		public string EmailConfirmationToken {get; set; }
 		public string Email { get; set; }
 		public List<string> UserRoles { get; set; }
 

@@ -13,5 +13,6 @@ namespace Moodify.Shared.DTOs.Users
 		public string Password { get; set; }
 		public string Fname { get; set; }
 		public string Lname { get; set; }
+		
 	}
 }

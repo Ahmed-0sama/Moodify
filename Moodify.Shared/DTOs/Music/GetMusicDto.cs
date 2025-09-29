@@ -1,5 +1,4 @@
-﻿using Moodify.Models;
-
+﻿
 namespace Moodify.DTO
 {
 	public class GetMusicDto

@@ -28,54 +28,44 @@ namespace Moodify.BAL.Services
 		private readonly RoleManager<IdentityRole> roleManager;
 		private readonly JWT _jwt;
 		private readonly IEmailSender _emailSender;
-		public AuthService(UserManager<User> userManager,RoleManager<IdentityRole> roleManager,IOptions<JWT>jwt)
+		public AuthService(UserManager<User> userManager,RoleManager<IdentityRole> roleManager,IOptions<JWT>jwt,IEmailSender emailSender)
 		{
 			_userManager = userManager;
 			_jwt = jwt.Value;
 			this.roleManager = roleManager;
+			_emailSender = emailSender;
 		}
 		public async Task<AuthModel> RegisterAsync(RegisterModel model)
 		{
-			if (await _userManager.FindByEmailAsync(model.Email) != null)
-			{
-				return new AuthModel { Message = "Email is already Registered!" };
-			}
-			if (await _userManager.FindByNameAsync(model.Username) != null)
-			{
-				return new AuthModel { Message = "Username is already Registered!" };
-			}
 			var user = new User
 			{
+				FirstName=model.Fname,
+				LastName=model.Lname,
 				UserName = model.Username,
-				Email = model.Email,
-				FirstName = model.Fname,
-				LastName = model.Lname
-
+				Email = model.Email
 			};
-			var  result=await _userManager.CreateAsync(user, model.Password);
-			if(!result.Succeeded)
+
+			var result = await _userManager.CreateAsync(user, model.Password);
+
+			if (!result.Succeeded)
 			{
-				var errors = string.Empty;
-				foreach(var error in result.Errors)
+				return new AuthModel
 				{
-					errors += $"{error.Description},";
-				}
-				return new AuthModel { Message = errors };
+					IsAuthenticated = false,
+					Message = string.Join(", ", result.Errors.Select(e => e.Description))
+				};
 			}
-			await _userManager.AddToRoleAsync(user, "User");
-			var jwtSecurityToken = await CreateJwtToken(user);
-			// generate confirmation token
-			var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-			var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+
+			// Generate the email confirmation token
+			var emailToken = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+
 			return new AuthModel
 			{
-				Userid=user.Id,
-				Email = user.Email,
-				ExpireOn=jwtSecurityToken.ValidTo,
 				IsAuthenticated = false,
-				UserRoles = new List<string> { "User" },
-				Token = new JwtSecurityTokenHandler().WriteToken(jwtSecurityToken),
-				Username = user.UserName
+				Userid = user.Id,
+				Email = user.Email,
+				Message = "Registration successful. Please confirm your email.",
+				EmailConfirmationToken = emailToken
 			};
 		}
 		public async Task<string>AddRoleAsync(AddRoleModel model)
@@ -119,12 +109,17 @@ namespace Moodify.BAL.Services
 		public async Task<AuthModel> GetTokenAsync(TokenRequestModel model)
 		{
 			var authModel = new AuthModel();
+
 			var user = await _userManager.FindByEmailAsync(model.Email);
+			if (user == null)
+				user = await _userManager.FindByNameAsync(model.Email);
+
 			if (user == null || !await _userManager.CheckPasswordAsync(user, model.Password))
 			{
 				authModel.Message = "Username or Password is incorrect!";
 				return authModel;
 			}
+
 			if (!user.EmailConfirmed)
 			{
 				authModel.Message = "Email not confirmed yet!";
@@ -132,11 +127,18 @@ namespace Moodify.BAL.Services
 			}
 			var jwtSecurityToken = await CreateJwtToken(user);
 			var rolesList = await _userManager.GetRolesAsync(user);
+
+			user.RefreshToken = TokenRequest.GenerateRefreshToken();
+			user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+
+			await _userManager.UpdateAsync(user);
+
 			authModel.Token = new JwtSecurityTokenHandler().WriteToken(jwtSecurityToken);
 			authModel.Email = user.Email;
 			authModel.ExpireOn = jwtSecurityToken.ValidTo;
-			authModel.Username = user.UserName;
-			authModel.UserRoles = rolesList.ToList();
+			authModel.IsAuthenticated = true;
+			authModel.RefreshToken = user.RefreshToken;
+			authModel.RefreshTokenExpiryTime = user.RefreshTokenExpiryTime;
 			return authModel;
 		}
 		public async Task<string> ConfirmEmailAsync(string userId, string token)
@@ -161,11 +163,14 @@ namespace Moodify.BAL.Services
 			if (user == null || !(await _userManager.IsEmailConfirmedAsync(user)))
 				return "User not found or Email not confirmed";
 			var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+
 			var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+
 			var resetUrl = $"{origin}/resetpassword?token={encodedToken}&email={email}";
 			await _emailSender.SendEmailAsync(email, "Reset Password",
 				$"Please reset your password by clicking <a href='{resetUrl}'>here</a>");
-			return "Password reset link has been sent to your email";
+			return "If an account with that email exists, a password reset link has been sent.";
+
 		}
 		public async Task<IdentityResult> ResetPasswordAsync(ResetPasswordDto model)
 		{
@@ -180,31 +185,36 @@ namespace Moodify.BAL.Services
 			 return await _userManager.ResetPasswordAsync(user, decodedToken, model.NewPassword);
 		
 		}
-		private async Task<JwtSecurityToken>CreateJwtToken(User user)
+		private async Task<JwtSecurityToken> CreateJwtToken(User user)
 		{
 			var userClaims = await _userManager.GetClaimsAsync(user);
 			var roles = await _userManager.GetRolesAsync(user);
-			var roleClaims = new List<Claim>();
-			foreach (var role in roles)
-				roleClaims.Add(new Claim("roles", role));
+			var roleClaims = roles.Select(r => new Claim(ClaimTypes.Role, r));
 			var claims = new[]
 			{
-				new Claim(JwtRegisteredClaimNames.Sub, user.UserName),
+				new Claim(JwtRegisteredClaimNames.Sub, user.Id),
 				new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
 				new Claim(JwtRegisteredClaimNames.Email, user.Email),
-				new Claim("uid", user.Id)
+				new Claim(ClaimTypes.NameIdentifier, user.Id),
+				new Claim(ClaimTypes.Name, user.UserName)       
 			}
 			.Union(userClaims)
 			.Union(roleClaims);
-			var symmetricSecurityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Key));
-			var signingCredentials = new SigningCredentials(symmetricSecurityKey, SecurityAlgorithms.HmacSha256);
-			var jwtSecurityToken = new JwtSecurityToken(
+
+			var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Key));
+			var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+			var now = DateTime.UtcNow;
+			var token = new JwtSecurityToken(
 				issuer: _jwt.Issuer,
 				audience: _jwt.Audience,
 				claims: claims,
-				expires: DateTime.Now.AddDays(_jwt.DurationInMinutes),
-				signingCredentials: signingCredentials);
-			return jwtSecurityToken;
+				notBefore: now, // Add this line
+				expires: now.AddMinutes(_jwt.DurationInMinutes),
+				signingCredentials: creds
+			);
+
+			return token;
 		}
 
 	}

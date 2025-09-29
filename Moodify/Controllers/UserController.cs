@@ -15,6 +15,7 @@ using Moodify.Shared.DTOs.Users;
 using Newtonsoft.Json.Linq;
 using System;
 using System.IdentityModel.Tokens.Jwt;
+using System.Net;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
@@ -48,21 +49,19 @@ namespace Moodify.Controllers
 		{
 			var result = await authService.RegisterAsync(model);
 
-			if (!string.IsNullOrEmpty(result.Message) && result.IsAuthenticated == false)
+			if (!result.IsAuthenticated && !string.IsNullOrEmpty(result.EmailConfirmationToken))
 			{
-				if (result.RefreshToken != null) // using RefreshToken as placeholder for email token
-				{
-					var confirmationLink = Url.Action(
-						nameof(ConfirmEmail),
-						"User",
-						new { userId = result.Userid, token = result.RefreshToken },
-						Request.Scheme);
+				var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(result.EmailConfirmationToken));
+				var confirmationLink = Url.Action(
+					nameof(ConfirmEmail),
+					"User",
+					new { userId = result.Userid, token = encodedToken },
+					Request.Scheme);
 
-					await emailSender.SendEmailAsync(result.Email, "Confirm your email",
-						$"Please confirm your account by clicking <a href='{confirmationLink}'>here</a>");
-				}
+				await emailSender.SendEmailAsync(result.Email, "Confirm your email",
+					$"Please confirm your account by clicking <a href='{confirmationLink}'>here</a>");
 
-				return Ok(result.Message);
+				return Ok("Registration successful. Please confirm your email.");
 			}
 
 			return BadRequest(result.Message);
@@ -78,15 +77,15 @@ namespace Moodify.Controllers
 			return BadRequest(result);
 		}
 		[HttpPost("Login")]
-		public async Task<IActionResult> Login(TokenRequestModel log)
+		public async Task<IActionResult> Login([FromBody] TokenRequestModel log)
 		{
 			if (!ModelState.IsValid)
-			{
 				return BadRequest(ModelState);
-			}
+
 			var result = await authService.GetTokenAsync(log);
 			if (!result.IsAuthenticated)
 				return BadRequest(result.Message);
+
 			return Ok(result);
 		}
 		[HttpPost("RefreshToken")]
