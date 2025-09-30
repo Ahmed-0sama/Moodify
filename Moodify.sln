@@ -4,8 +4,26 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 17.14.36203.30
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Moodify", "Moodify\Moodify.csproj", "{523BEFB0-465B-43AC-B724-E795D43E1768}"
+	ProjectSection(ProjectDependencies) = postProject
+		{860387F6-8B09-4CFF-9B3D-DE05FD01DE00} = {860387F6-8B09-4CFF-9B3D-DE05FD01DE00}
+		{CD6E7598-0F11-4319-9B6D-C8D2D6DB6632} = {CD6E7598-0F11-4319-9B6D-C8D2D6DB6632}
+		{FA61C83C-679A-42E4-B95A-1C7B6D7966D7} = {FA61C83C-679A-42E4-B95A-1C7B6D7966D7}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FacialExpression", "FacialExpression\FacialExpression.csproj", "{D9BAFCEB-38E4-163D-1040-ECB2BBA1BFE9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Moodify.BAL", "BAL\Moodify.BAL.csproj", "{860387F6-8B09-4CFF-9B3D-DE05FD01DE00}"
+	ProjectSection(ProjectDependencies) = postProject
+		{CD6E7598-0F11-4319-9B6D-C8D2D6DB6632} = {CD6E7598-0F11-4319-9B6D-C8D2D6DB6632}
+		{FA61C83C-679A-42E4-B95A-1C7B6D7966D7} = {FA61C83C-679A-42E4-B95A-1C7B6D7966D7}
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Moodify.DAL", "DAL\Moodify.DAL.csproj", "{FA61C83C-679A-42E4-B95A-1C7B6D7966D7}"
+	ProjectSection(ProjectDependencies) = postProject
+		{CD6E7598-0F11-4319-9B6D-C8D2D6DB6632} = {CD6E7598-0F11-4319-9B6D-C8D2D6DB6632}
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Moodify.Shared", "Moodify.Shared\Moodify.Shared.csproj", "{CD6E7598-0F11-4319-9B6D-C8D2D6DB6632}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -18,9 +36,20 @@ Global
 		{523BEFB0-465B-43AC-B724-E795D43E1768}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{523BEFB0-465B-43AC-B724-E795D43E1768}.Release|Any CPU.Build.0 = Release|Any CPU
 		{D9BAFCEB-38E4-163D-1040-ECB2BBA1BFE9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D9BAFCEB-38E4-163D-1040-ECB2BBA1BFE9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D9BAFCEB-38E4-163D-1040-ECB2BBA1BFE9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D9BAFCEB-38E4-163D-1040-ECB2BBA1BFE9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{860387F6-8B09-4CFF-9B3D-DE05FD01DE00}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{860387F6-8B09-4CFF-9B3D-DE05FD01DE00}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{860387F6-8B09-4CFF-9B3D-DE05FD01DE00}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{860387F6-8B09-4CFF-9B3D-DE05FD01DE00}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FA61C83C-679A-42E4-B95A-1C7B6D7966D7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FA61C83C-679A-42E4-B95A-1C7B6D7966D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FA61C83C-679A-42E4-B95A-1C7B6D7966D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FA61C83C-679A-42E4-B95A-1C7B6D7966D7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CD6E7598-0F11-4319-9B6D-C8D2D6DB6632}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CD6E7598-0F11-4319-9B6D-C8D2D6DB6632}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CD6E7598-0F11-4319-9B6D-C8D2D6DB6632}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CD6E7598-0F11-4319-9B6D-C8D2D6DB6632}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

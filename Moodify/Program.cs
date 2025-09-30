@@ -5,6 +5,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Moodify.BAL.Helpers;
+using Moodify.BAL.Interfaces;
+using Moodify.BAL.Services;
 using Moodify.Models;
 using Moodify.Services;
 using System;
@@ -23,8 +26,14 @@ options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnectio
 builder.Services.AddIdentity<User, IdentityRole>()
 	.AddEntityFrameworkStores<MoodifyDbContext>()
 	.AddDefaultTokenProviders();
-
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<RoleSeederService>();
+builder.Services.AddScoped<IFriendService, FriendService>();
+builder.Services.AddScoped<IFavoriteService, FavoriteService>();
+builder.Services.AddScoped<IArtistService, ArtistService>();
 // JWT Configuration
+builder.Services.Configure<JWT>(builder.Configuration.GetSection("Jwt"));
 var jwtSection = builder.Configuration.GetSection("Jwt");
 var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSection["Key"]));
 
@@ -48,7 +57,7 @@ builder.Services.AddAuthentication(options =>
 		ValidIssuer = jwtSection["Issuer"],
 		ValidAudience = jwtSection["Audience"],
 		RoleClaimType = ClaimTypes.Role,
-		ClockSkew = TimeSpan.FromMinutes(1) 
+		ClockSkew = TimeSpan.FromMinutes(5)
 	};
 });
 // Swagger configuration with JWT support
@@ -89,6 +98,11 @@ if (app.Environment.IsDevelopment())
 	app.UseSwaggerUI();
 }
 
+using (var scope = app.Services.CreateScope())
+{
+	var roleSeeder = scope.ServiceProvider.GetRequiredService<RoleSeederService>();
+	await roleSeeder.SeedRolesAndAdminAsync();
+}
 // Middleware pipeline
 app.UseHttpsRedirection();
 
