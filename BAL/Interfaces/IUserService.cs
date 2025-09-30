@@ -11,7 +11,7 @@ namespace Moodify.BAL.Interfaces
 {
 	public interface IUserService
 	{
-		Task<string> UpdateUserProfileAsync(updateinfodto model, User user);
+		Task<string> UpdateUserProfileAsync(updateinfodto model, string userid);
 		Task<string>UploadProfilePictureAsync(string userId,IFormFile file);
 		Task<byte[]>GetProfilePictureAsync(string userId);
 		Task<string>DeleteProfilePictureAsync(string userId);

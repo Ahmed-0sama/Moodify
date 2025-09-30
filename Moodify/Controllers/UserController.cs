@@ -27,21 +27,14 @@ namespace Moodify.Controllers
 	[ApiController]
 	public class UserController : ControllerBase
 	{
-
-		MoodifyDbContext db;
-		private readonly IConfiguration configuration;
 		private readonly BAL.Interfaces.IEmailSender emailSender;
 		private readonly IAuthService authService;
 		private readonly IUserService userService;
-		private readonly UserManager<User> userManager;
-		public UserController(MoodifyDbContext db, IConfiguration configuration,BAL.Interfaces.IEmailSender emailSender,IAuthService authService,IUserService userService,UserManager<User> userManager)
+		public UserController(BAL.Interfaces.IEmailSender emailSender,IAuthService authService,IUserService userService)
 		{
-			this.db = db;
-			this.configuration = configuration;
 			this.emailSender = emailSender;
 			this.authService = authService;
 			this.userService = userService;
-			this.userManager = userManager;
 		}
 
 		[HttpPost("Register")]
@@ -130,11 +123,7 @@ namespace Moodify.Controllers
 			{
 				return Unauthorized("User ID not found in token.");
 			}
-			var user = await userManager.FindByIdAsync(userId);
-			if (user == null)
-				return NotFound($"User with ID {userId} not found.");
-
-			var result = await userService.UpdateUserProfileAsync(updateInfoDto, user);
+			var result = await userService.UpdateUserProfileAsync(updateInfoDto, userId);
 
 			return result == "Profile updated successfully"
 				? Ok(new { Message = result })

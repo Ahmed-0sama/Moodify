@@ -64,8 +64,9 @@ namespace Moodify.BAL.Services
 			}
 			return user.Photo;
 		}
-		public async Task<string> UpdateUserProfileAsync(updateinfodto model, User user)
+		public async Task<string> UpdateUserProfileAsync(updateinfodto model, string userid)
 		{
+			var user = await userManager.FindByIdAsync(userid);
 			if (user == null)
 			{
 				return "User not found";
