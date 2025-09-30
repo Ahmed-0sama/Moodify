@@ -27,6 +27,8 @@ builder.Services.AddIdentity<User, IdentityRole>()
 	.AddEntityFrameworkStores<MoodifyDbContext>()
 	.AddDefaultTokenProviders();
 builder.Services.AddScoped<IFriendService, FriendService>();
+builder.Services.AddScoped<IFavoriteService, FavoriteService>();
+builder.Services.AddScoped<IArtistService, ArtistService>();
 // JWT Configuration
 builder.Services.Configure<JWT>(builder.Configuration.GetSection("Jwt"));
 var jwtSection = builder.Configuration.GetSection("Jwt");

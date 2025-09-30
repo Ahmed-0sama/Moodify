@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Moodify.BAL.Interfaces;
+using Moodify.BAL.Services;
 using Moodify.DTO;
 using Moodify.Models;
 using System.Security.Claims;
@@ -13,75 +15,62 @@ namespace Moodify.Controllers
 	[ApiController]
 	public class ArtistController : ControllerBase
 	{
-		private UserManager<User> userManager;
-		private IConfiguration configuration;
-		private MoodifyDbContext db;
-		public ArtistController(UserManager<User> userManager, IConfiguration configuration, MoodifyDbContext db)
+		private readonly IArtistService _artistService;
+		public ArtistController(IArtistService artistService)
 		{
-			this.userManager = userManager;
-			this.configuration = configuration;
-			this.db = db;
-
+			_artistService = artistService;
 		}
-		[Authorize(Roles ="Admin")]
+		[Authorize(Roles = "Admin")]
 		[HttpPost("AddArtist")]
 		public async Task<IActionResult> AddArtist(AddArtistInfoDTO dto)
 		{
 			if (!ModelState.IsValid)
-			{
 				return BadRequest(ModelState);
-			}
-			var user = await userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-			if (user == null)
+
+			var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+			if (userId == null) return Unauthorized();
+
+			var result = await _artistService.AddArtistAsync(userId, dto);
+
+			return result switch
 			{
-				return NotFound("User Not Found");
-			}
-			var arrtist = new Artist
-			{
-				ArtistName = dto.FName + " " + dto.LName,
-				Description = dto.Info,
-				Photo = dto.Image
+				"UserNotFound" => NotFound(result),
+				_ => Ok(result)
 			};
-			await db.Artists.AddAsync(arrtist);
-			await db.SaveChangesAsync();
-			return Ok("Artist added successfully");
 		}
 		[Authorize]
 		[HttpGet("SearchArtistInfo/{query}")]
 		public async Task<IActionResult> SearchArtistInfo(string query)
 		{
-			var user = await userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-			if (user == null)
+			var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+			if (userId == null) return Unauthorized();
+
+			try
 			{
-				return NotFound("User Not Found");
+				var artists = await _artistService.SearchArtistInfoAsync(userId, query);
+				return Ok(artists);
 			}
-			var matchingArtists = await db.Artists
-				.Where(s => s.ArtistName.Contains(query))
-				.Select(s => new artistInfoDTO
-				{
-					artistid=s.ArtistId,
-					ArtistName = s.ArtistName,
-					Photo=s.Photo,
-					Description=s.Description
-				})
-				.ToListAsync();
-			return Ok(matchingArtists);
+			catch (Exception ex)
+			{
+				return NotFound(ex.Message);
+			}
 		}
 		[Authorize]
-		[HttpGet("GetArtistInfo")]
-		public async Task<IActionResult> GetArtistInfo([FromBody] int id)
+		[HttpGet("GetArtistInfo/{id}")]
+		public async Task<IActionResult> GetArtistInfo(int id)
 		{
-			var user = await userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-			if (user == null)
+			var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+			if (userId == null) return Unauthorized();
+
+			try
 			{
-				return NotFound("User Not Found");
+				var artist = await _artistService.GetArtistInfoAsync(userId, id);
+				return Ok(artist);
 			}
-			var artist = await db.Artists.FirstOrDefaultAsync(s => s.ArtistId == id);
-			if (artist == null)
+			catch (Exception ex)
 			{
-				return NotFound("Artist Not Found");
+				return NotFound(ex.Message);
 			}
-			return Ok(artist);
 		}
 
 	}

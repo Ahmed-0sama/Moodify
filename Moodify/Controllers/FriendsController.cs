@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Moodify.BAL.Interfaces;
+using Moodify.BAL.Services;
 using Moodify.DTO;
 using Moodify.Models;
 using System;
@@ -16,31 +17,24 @@ namespace Moodify.Controllers
 	[ApiController]
 	public class FriendsController : ControllerBase
 	{
-		private readonly UserManager<User> userManager;
-		private readonly IConfiguration configuration;
-		private MoodifyDbContext db;
-		private IFriendService friendService;
+		private IFriendService _friendService;
 		public FriendsController(UserManager<User> userManager,IConfiguration configuration, MoodifyDbContext db,IFriendService friendService)
 		{
-			this.userManager = userManager;
-			this.configuration = configuration;
-			this.db = db;
-			this.friendService = friendService;
+			_friendService = friendService;
 		}
 		[Authorize]
 		[HttpGet("SearchForFriend/{query}")]
 		public async Task<IActionResult> SearchforFriend( string query ,int pageNumber = 1, int pageSize = 10)
 		{
-			var user = await userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-			if (user == null)
-			{
-				return NotFound("user not found");
-			}
+			var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+			if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
 			if (string.IsNullOrWhiteSpace(query))
 			{
 				return BadRequest("Search query cannot be empty");
 			}
-			var result = await friendService.SearchForFriendAsync(user.Id, query, pageNumber, pageSize);
+
+			var result = await _friendService.SearchForFriendAsync(userId, query, pageNumber, pageSize);
 			return Ok(result);
 		}
 		[Authorize]
@@ -49,7 +43,7 @@ namespace Moodify.Controllers
 		{
 			var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 			if (userId == null) return Unauthorized();
-			var result = await friendService.SendFriendRequestAsync(User.FindFirst(userId).Value, dto.userid);
+			var result = await _friendService.SendFriendRequestAsync(userId, dto.userid);
 			if (result == "Friend request sent successfully")
 			{
 				return Ok(result);
@@ -62,7 +56,7 @@ namespace Moodify.Controllers
 		{
 			var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 			if (userId == null) return Unauthorized();
-			var result=await friendService.GetSentRequestsAsync(userId);
+			var result=await _friendService.GetSentRequestsAsync(userId);
 			return Ok(result);
 
 		}
@@ -72,7 +66,7 @@ namespace Moodify.Controllers
 		{
 			var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 			if (userId == null) return Unauthorized();
-			var result = await friendService.GetReceivedRequestsAsync(userId);
+			var result = await _friendService.GetReceivedRequestsAsync(userId);
 			return Ok(result);
 		}
 		[Authorize]
@@ -90,7 +84,7 @@ namespace Moodify.Controllers
 				return Unauthorized();
 			}
 
-			var result = await friendService.AcceptRequestAsync(userId, id);
+			var result = await _friendService.AcceptRequestAsync(userId, id);
 			return Ok(result); ;
 		}
 		[Authorize]
@@ -102,7 +96,7 @@ namespace Moodify.Controllers
 				return BadRequest("must send the id");
 			}
 			var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-			var reult= await friendService.RejectRequestAsync(userId, id);
+			var reult= await _friendService.RejectRequestAsync(userId, id);
 			return Ok(reult);
 		}
 		[Authorize]
@@ -111,7 +105,7 @@ namespace Moodify.Controllers
 		{
 			var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 			if (userId == null) return Unauthorized();
-			var result = await friendService.GetFriendsAsync(userId);
+			var result = await _friendService.GetFriendsAsync(userId);
 			return Ok(result);
 		}
 
