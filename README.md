@@ -54,8 +54,6 @@ Layered backend with a companion Python component:
 - Persistence: EF Core context/entities in `Moodify.DAL` with migrations.
 - ML (auxiliary): `FacialExpression/main.py` loads `best.pt` to classify expressions.
 
-> The Python component is a standalone script (not a web service) in this repo; the API can call it or you can run it separately as part of a pipeline.
-
 ## Tech stack
 
 - Backend: C#, ASP.NET Core, EF Core
@@ -163,12 +161,6 @@ python .\FacialExpression\main.py --model .\FacialExpression\best.pt --input pat
 
 Inspect these files in `Moodify/Controllers` for routes and DTOs.
 
-## Screenshots / diagram
-
-Architecture (example):
-
-![Architecture](diagrams/Untitled.png)
-
 ## Roadmap
 
 - Publish a small requirements file for the Python component
@@ -188,5 +180,4 @@ Architecture (example):
 See `LICENSE.txt` for details.
 
 ---
-
-Made by Ahmed Osama — happy to chat about the architecture, trade‑offs, and future plans.
+happy to chat about the architecture, trade‑offs, and future plans.
