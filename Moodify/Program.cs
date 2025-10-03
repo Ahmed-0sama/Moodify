@@ -20,22 +20,34 @@ IdentityModelEventSource.ShowPII = true;
 // Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
-builder.Services.AddSingleton<SpotifyTokenManager>();
+
 builder.Services.AddDbContext<MoodifyDbContext>(options =>
 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddIdentity<User, IdentityRole>()
 	.AddEntityFrameworkStores<MoodifyDbContext>()
 	.AddDefaultTokenProviders();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddSingleton<ISpotifyTokenManager, SpotifyTokenManager>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<RoleSeederService>();
+builder.Services.AddScoped<ISpotifyMusicService, SpotifyMusicService>();
+builder.Services.AddScoped<IEmotionService, EmotionService>();
 builder.Services.AddScoped<IFriendService, FriendService>();
 builder.Services.AddScoped<IFavoriteService, FavoriteService>();
 builder.Services.AddScoped<IArtistService, ArtistService>();
+builder.Services.AddScoped<IMusicService,MusicService>();
 // JWT Configuration
 builder.Services.Configure<JWT>(builder.Configuration.GetSection("Jwt"));
 var jwtSection = builder.Configuration.GetSection("Jwt");
 var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSection["Key"]));
+
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton(x =>
+{
+	var config = builder.Configuration;
+	string blobConnectionString = config.GetConnectionString("BlobStorage");
+	return new Azure.Storage.Blobs.BlobServiceClient(blobConnectionString);
+});
 
 builder.Services.AddAuthentication(options =>
 {

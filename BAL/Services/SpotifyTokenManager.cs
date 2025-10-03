@@ -1,12 +1,13 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Moodify.BAL.Interfaces;
+using Newtonsoft.Json.Linq;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
 namespace Moodify.Services
 {
-	public class SpotifyTokenManager:ISpotifyTokenManager
+	public class SpotifyTokenManager : ISpotifyTokenManager
 	{
 		private readonly string clientId;
 		private readonly string clientSecret;
